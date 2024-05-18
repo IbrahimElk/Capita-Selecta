@@ -1,0 +1,11 @@
+-- deze programma is verantwoordelijk voor het lezen van een text file 
+-- die in string formaat een kuifje programma bevat. 
+-- eenmaal gelezen, stuur resultaat naar parser. 
+-- indien parser resultaat geeft, print op terminal. 
+-- indien niet, error code in terminal. 
+
+-- dit programma heeft dan ook de verantwoordelijkheid van een linker, 
+-- de kuifje programmer gaat niet bij elke operatie een distributie bijschrijven
+-- definieer een aparte file, die distributies erkent aan de definties/function geschreven
+-- in de kuifje taal
+-- en de linker zal die twee files samenbrenge, en vervolgens stringifyen voor de parser .

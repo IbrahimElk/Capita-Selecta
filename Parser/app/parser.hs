@@ -1,0 +1,4 @@
+-- we parsen kuifje programma in haskell.
+-- de parser programma laten runnen maar zo met args 
+-- bv. parse somefile.kuifje --seed=123
+-- seed is dan gebruikt voor random number generation.
