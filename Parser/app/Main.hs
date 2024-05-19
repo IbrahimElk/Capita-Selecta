@@ -2,14 +2,25 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module Main (main) where
+-- import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.State as S
+import qualified Control.Monad.IO.Class as IO
+import qualified Data.Ratio as DR
+import qualified System.Random as R
 import qualified Data.Map as M
+
 import qualified Text.Parsec as P
 import qualified Text.Parsec.String as PS
+
 import Data.Map.Strict ( elems, mapWithKey, singleton )
 import GHC.Natural
+import GHC.Real (fromRational)
 
 type Prob = Rational
 newtype Dist a = D { runD :: M.Map a Prob }
@@ -18,7 +29,6 @@ type a ~> b = a -> Dist b
 -- TODO: werk aan de parser. 
 -- TOOD: werk aan de evaluator. 
 -- (gebruik voor nu de 'mean' van de distributie ipv samplen.)
-
 
 type Var = String
 data Statement = Stat Var Expr
@@ -41,33 +51,40 @@ instance Show Expr where
   show (Lit   i c)      = "[ Lit " ++ show i ++ " CDist " ++ show c ++ " ]"
   show (Var   v)        = "[ Var"  ++ show v  ++ " ]"
 
-data Cond = Equal        Expr Expr DscrDist
+data Cond = And Cond Cond DscrDist
+          | Or  Cond Cond DscrDist
+          | Comp Comp
+
+instance Show Cond where
+  show (And  c1 c2 d)               = "( " ++ show c1 ++ " && "  ++ show c2  ++ " )"
+  show (Or   c1 c2 d)               = "( " ++ show c1 ++ " || "  ++ show c2  ++ " )"
+  show (Comp c      )               = "( " ++ show c  ++ " )"
+
+data Comp = Equal        Expr Expr DscrDist
           | NotEqual     Expr Expr DscrDist
           | LessThan     Expr Expr DscrDist
           | GreaterThan  Expr Expr DscrDist
           | LessThanOrEqual    Expr Expr DscrDist
           | GreaterThanOrEqual Expr Expr DscrDist
-          | And  Cond Cond DscrDist
-          | Or   Cond Cond DscrDist
 
-instance Show Cond where
+instance Show Comp where
   show (Equal        e1 e2 d)       = "( " ++ show e1 ++ " == "  ++ show e2  ++ " )"
   show (NotEqual     e1 e2 d)       = "( " ++ show e1 ++ " != "  ++ show e2  ++ " )"
   show (LessThan     e1 e2 d)       = "( " ++ show e1 ++ " < "   ++ show e2  ++ " )"
   show (GreaterThan  e1 e2 d)       = "( " ++ show e1 ++ " > "   ++ show e2  ++ " )"
   show (LessThanOrEqual    e1 e2 d) = "( " ++ show e1 ++ " <= "  ++ show e2  ++ " )"
   show (GreaterThanOrEqual e1 e2 d) = "( " ++ show e1 ++ " >= "  ++ show e2  ++ " )"
-  show (And  c1 c2 d)               = "( " ++ show c1 ++ " && "  ++ show c2  ++ " )"
-  show (Or   c1 c2 d)               = "( " ++ show c1 ++ " || "  ++ show c2  ++ " )"
 
 type Mu     = Double
 type Sigma  = Double
 type Alpha  = Double
 type Beta   = Double
+type UpperBound = Double
+type LowerBound = Double
 
 data ContDist = Beta      Alpha Beta
               | Gaussian  Mu    Sigma
-              | Uniform     Double Double
+              | Uniform     LowerBound UpperBound
               | Exponential Double
               | Poisson     Double
 
@@ -85,29 +102,30 @@ instance Show DscrDist where
 
 
 data Kuifje
-  = Skip
+  = Return  Var
   | Update  Statement Kuifje
   | If      Cond Kuifje Kuifje Kuifje
   | While   Cond Kuifje Kuifje
 
 instance Show Kuifje where
-  show Skip                 = "Skip"
+  show (Return  a        )  = "Return " ++ show a
   show (Update s k1      )  = "Update " ++ show s ++ "(" ++ show k1 ++ ")"
   show (If     c k1 k2 k3)  = "If "     ++ show c ++ "(" ++ show k1 ++ ")" ++ "(" ++ show k2 ++ ")"  ++ "(" ++ show k3 ++ ")"
   show (While  c k1 k2   )  = "While "  ++ show c ++ "(" ++ show k2 ++ ")" ++ "(" ++ show k2 ++ ")"
 
 instance Semigroup Kuifje where
-  Skip          <> l    = l
+  Return a      <> l    = l
   Update s p    <> l    = Update s (p <> l)
   While c p q   <> l    = While c p (q <> l)
   If c p q r    <> l    = If c p q (r <> l)
 
 instance Monoid Kuifje where
-  mempty = Skip
+  mempty = Return "void"
+  mappend :: Kuifje -> Kuifje -> Kuifje
   mappend = (<>)
 
 skip :: Kuifje
-skip = Skip
+skip = Return "void"
 
 update :: Statement -> Kuifje
 update f = Update f skip
@@ -118,461 +136,386 @@ while = While
 cond :: Cond -> Kuifje -> Kuifje -> Kuifje -> Kuifje
 cond = If
 
--- -----------------------------------------
--- IMPLEMENTATIE VAN EEN PARSER:
--- -----------------------------------------
+returns :: Var -> Kuifje
+returns = Return
+-- ------------------------------------
+-- random function : 
+-- ------------------------------------
 
-kuifjeParser :: PS.Parser Kuifje
-kuifjeParser = skipParser P.<|> updateParser P.<|> ifParser P.<|> whileParser
+contDist :: ContDist -> Dist Int
+contDist _ =  hardcodedContDist
 
--- TODO:
-statementParser :: PS.Parser Statement
-statementParser = do
-  return (Stat "X" (Lit 5 (Uniform 3 3)))
+hardcodedContDist :: Dist Int
+hardcodedContDist = D $ M.fromList
+    [ (x, p) | x <- [0..19]
+             , let p = if even x then 1 DR.% 20 else 3 DR.% 100
+    ]
 
--- TODO:
-condParser :: PS.Parser Cond
-condParser = do
-  return (Equal (Lit 5 (Uniform 2 2)) (Lit 5 (Uniform 2 2)) (Bernoulli 2))
+dscrDist :: DscrDist -> Dist Bool
+dscrDist _ =  hardcodedDscrDist
 
-skipParser :: PS.Parser Kuifje
-skipParser = do
-    P.string "Skip"
-    return skip
-
-leftBracket :: PS.Parser ()
-leftBracket = do
-  P.spaces
-  P.char '('
-  P.spaces
-
-rightBracket :: PS.Parser ()
-rightBracket = do
-  P.spaces
-  P.char ')'
-  P.spaces
-
-updateParser :: PS.Parser Kuifje
-updateParser = do
-  P.string "Update"
-  leftBracket
-  s <- statementParser
-  rightBracket
-  k <- kuifjeParser
-  return (update s <> k)
-
-ifParser :: PS.Parser Kuifje
-ifParser = do
-  P.string "If"
-  P.spaces
-  c <- condParser
-  leftBracket
-  p <- kuifjeParser
-  rightBracket
-  leftBracket
-  q <- kuifjeParser
-  rightBracket
-  leftBracket
-  r <- kuifjeParser
-  rightBracket
-  return (cond c p q r)
-
-whileParser :: PS.Parser Kuifje
-whileParser = do
-  P.string "While"
-  P.spaces
-  c <- condParser
-  leftBracket
-  p <- kuifjeParser
-  rightBracket
-  leftBracket
-  q <- kuifjeParser
-  rightBracket
-  return (While c p q)
+hardcodedDscrDist :: Dist Bool
+hardcodedDscrDist = D $ M.fromList [(True, 1 DR.% 2), (False, 1 DR.% 2)]
 
 -- ------------------------------------
 -- evaluator function : 
 -- ------------------------------------
 
--- elk variable moet een distributie hebben. 
--- deze int moet vervangen worden naar een distributie.
--- geef me de Env van de State, de State houd een tuple bij, de state zelf, Env, en de output van de vorige operatie Int.
-
--- data Statement = Stat Var Expr
--- de uistkomst van deze functie is stochastic van aard, 
--- we voegen een distributie toe, 
--- maar we rekenen enkel verder met een random getal uit die distributie
-
--- das eig die keili teken ofzo, ~> ??
+-- type Envs = String ~> Dist Int
 type Env = M.Map String (Dist Int)
 
--- newtype Dist a = D { runD :: M.Map a Prob }
--- extractInt :: Dist Int -> Int
--- extractInt (D x) = x
-
 point :: (Ord a) => a -> Dist a
 point x = D $ singleton x 1
 
-createDistFromLit :: Int -> Dist Int
-createDistFromLit  = point
+sampleBoolDist :: Dist Bool -> IO Bool
+sampleBoolDist (D dist) = do
+    let p = dist M.! True
+    randomNumber <- generateRandomDouble
+    return (randomNumber <= fromRational p)
 
-extractRandom :: Dist Int -> Int
-extractRandom (D dist) = fst $ M.foldrWithKey (\k p acc -> if p > snd acc then (k, p) else acc) (0, 0) dist
+generateRandomDouble :: IO Double
+generateRandomDouble = R.randomRIO (0, 1)
 
-evalExpr :: Expr -> Env -> Dist Int
-evalExpr 
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
+sumDistributions :: Dist Int -> Dist Int -> Dist Int
+sumDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
+          [ (x+y, p1*p2)
+          | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2 ]
 
+subDistributions :: Dist Int -> Dist Int -> Dist Int
+subDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
+          [ (x+y, p1*p2)
+          | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2 ]
 
-evalStatement :: Statement -> S.State Env Int
+mulDistributions :: Dist Int -> Dist Int -> Dist Int
+mulDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
+          [ (x*y, p1*p2)
+          | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2 ]
 
--- verander de env de distributie van x wordt verandert naar die van y. (overwrite)
-evalStatement (Stat x (Var y))   = do
+divDistributions :: Dist Int -> Dist Int -> Dist Int
+divDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
+          [ (x `div` y, p1 * p2)
+          | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2, y /= 0 ]
+
+modDistributions :: Dist Int -> Dist Int -> Dist Int
+modDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
+            [ (x `mod` y, p1 * p2)
+            | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2, y /= 0 ]
+
+-- ---------------------------------------------------
+-- ---------------------------------------------------
+
+equalDistributions :: Dist Int -> Dist Int -> Dist Bool
+equalDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+        [ (x == y, p1 * p2)
+        | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+notEqualDistributions :: Dist Int -> Dist Int -> Dist Bool
+notEqualDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x /= y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+lessThanDistributions :: Dist Int -> Dist Int -> Dist Bool
+lessThanDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x < y, p1 * p2) -- is goed idee ? voor elk pair van beide distributies??
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+greaterThanDistributions :: Dist Int -> Dist Int -> Dist Bool
+greaterThanDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x > y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+lessThanOrEqualDistributions :: Dist Int -> Dist Int -> Dist Bool
+lessThanOrEqualDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x <= y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+greaterThanOrEqualDistributions :: Dist Int -> Dist Int -> Dist Bool
+greaterThanOrEqualDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x > y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+andDistributions :: Dist Bool -> Dist Bool -> Dist Bool
+andDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x && y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+orDistributions :: Dist Bool -> Dist Bool -> Dist Bool
+orDistributions (D dist1) (D dist2) =
+    D $ M.fromListWith (+)
+    [ (x || y, p1 * p2)
+    | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2]
+
+-- ---------------------------------------------------
+-- ---------------------------------------------------
+
+addPerturbation :: Dist Int -> Dist Int -> Dist Int
+addPerturbation (D dist) (D noise) = D $ M.fromListWith (+) [ (x+n, p*q) | (x, p) <- M.toList dist, (n, q) <- M.toList noise ]
+
+addBoolPerturbation :: Dist Bool -> Dist Bool -> Dist Bool
+addBoolPerturbation (D dist) (D noise) = D $ M.fromListWith (+) [(x /= n, p * q) | (x, p) <- M.toList dist, (n, q) <- M.toList noise ]
+
+-- ---------------------------------------------------
+-- ---------------------------------------------------
+
+evalExpr :: Expr -> S.State Env (Dist Int)
+evalExpr (Add u v d) = do
+  x <- evalExpr u
+  y <- evalExpr v
+  let z = sumDistributions x y
+  let l = contDist d
+  return (addPerturbation z l)  --additive noise added
+
+evalExpr (Sub u v d) = do
+  env <- S.get
+  x <- evalExpr u
+  y <- evalExpr v
+  let z = subDistributions x y
+  let l = contDist d
+  return (addPerturbation z l)
+
+evalExpr (Mul u v d) = do
+  env <- S.get
+  x <- evalExpr u
+  y <- evalExpr v
+  let z = mulDistributions x y
+  let l = contDist d
+  return (addPerturbation z l)
+
+evalExpr (Div u v d) = do
+  env <- S.get
+  x <- evalExpr u
+  y <- evalExpr v
+  let z = divDistributions x y
+  let l = contDist d
+  return (addPerturbation z l)
+
+evalExpr (Mod u v d) = do
+  env <- S.get
+  x <- evalExpr u
+  y <- evalExpr v
+  let z = modDistributions x y
+  let l = contDist d
+  return (addPerturbation z l)
+
+evalExpr (Lit u d) = do
+  let l = contDist d
+  return (addPerturbation (point u) l)
+
+evalExpr (Var u) = do
     env <- S.get
-    let distY = env M.! y
+    case env M.!? u of
+        Just x  -> return x
+        Nothing -> error $ "Variable " ++ u ++ " is not initialised!"
 
-    -- M.insert : 
-    -- Insert a new key and value in the map. 
-    -- If the key is already present in the map, 
-    -- the associated value is replaced with the supplied value.
-    -- new key 'x' and new value 'distY' associated with key.
-    -- insert into dictionary 'env'
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
-    let updatedEnv = M.insert x distY env
-    S.put updatedEnv
-    let distInt = env M.! x
-    return (extractRandom distInt)
-
--- voeg nieuwe distrubutie toe aan de env vanuitde literal.
-evalStatement (Stat x (Lit y d))   = do
+evalStatement :: Statement -> S.State Env ()
+evalStatement (Stat var expr) = do
     env <- S.get
-    let distX = createDistFromLit y d
-
-    let updatedEnv = M.insert x distX env
+    resultDist <- evalExpr expr
+    let updatedEnv = M.insert var resultDist env
     S.put updatedEnv
 
-    return (extractRandom distX)
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
-evalStatement (Stat x (Mod p q d))   = do
-    env <- S.get
-    r <- evalExpr p env
-    -- geef me de distributie van deze expressie. 
-    -- (env is meegegeven, maar env mag je niet veranderen, enkel gebruiken)
+-- moet bool teruggeven want the condition kan ook van nested nature zijn!!!
+evalComp :: Comp -> S.State Env (Dist Bool)
+evalComp (Equal e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
+  let z       = equalDistributions resultDist1 resultDist2
+  let l       = dscrDist d
+  return (addBoolPerturbation z l)
 
-    s <- evalExpr q env
+evalComp (NotEqual e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
 
+  let distBool = notEqualDistributions resultDist1 resultDist2
+  let l        = dscrDist d
+  return (addBoolPerturbation distBool l)
 
-    let distX = createDistFromLit y d
+evalComp (LessThan e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
 
-    let updatedEnv = M.insert x distX env
+  let distBool    = lessThanDistributions resultDist1 resultDist2
+  let l       = dscrDist d
+  let resultDist  = addBoolPerturbation distBool l
+  return resultDist
 
-    S.put updatedEnv
+evalComp (GreaterThan e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
 
-    return (extractRandom distX)
+  let distBool    = greaterThanDistributions resultDist1 resultDist2
+  let l           = dscrDist d
+  return $ addBoolPerturbation distBool l
 
+evalComp (LessThanOrEqual e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
 
-evalStatement (Add t u d) = do
-    new_t <- evalExpr t
-    new_u <- evalExpr u
-    return (new_t + new_u)
+  let distBool    = lessThanOrEqualDistributions resultDist1 resultDist2
+  let l           = dscrDist d
+  return $ addBoolPerturbation distBool l
 
-evalStatement (Sub t u d) = do
-    new_t <- evalExpr t
-    new_u <- evalExpr u
-    return (new_t - new_u)
+evalComp (GreaterThanOrEqual e1 e2 d) = do
+  resultDist1 <- evalExpr e1
+  resultDist2 <- evalExpr e2
 
-evalStatement (Mul t u d) = do
-    new_t <- evalExpr t
-    new_u <- evalExpr u
-    return (new_t * new_u)
+  let distBool    = greaterThanOrEqualDistributions resultDist1 resultDist2
+  let l           = dscrDist d
+  return $ addBoolPerturbation distBool l
 
-evalStatement (Div t u d) = do
-    new_t <- evalExpr t
-    new_u <- evalExpr u
-    return (new_t * new_u)
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
+evalCond :: Cond -> S.State Env (Dist Bool)
+evalCond (And e1 e2 d) = do
+  resultDist1 <- evalCond e1
+  resultDist2 <- evalCond e2
 
-evalStatement (Mod t u d) = do
-    new_t <- evalExpr t
-    new_u <- evalExpr u
-    return (new_t * new_u)
+  let distBool    = andDistributions resultDist1 resultDist2
+  let l           = dscrDist d
+  let resultDist  = addBoolPerturbation distBool l
+  return resultDist
 
-evalStatement (Lit t d) = do
-    return (t)
+evalCond (Or e1 e2 d) = do
+  resultDist1 <- evalCond e1
+  resultDist2 <- evalCond e2
 
+  let distBool    = orDistributions resultDist1 resultDist2
+  let l           = dscrDist d
+  return $ addBoolPerturbation distBool l
 
--- data Kuifje
---   = Skip
---   | Update  Statement Kuifje
---   | If      Cond Kuifje Kuifje Kuifje
---   | While   Cond Kuifje Kuifje
+evalCond (Comp c) = do evalComp c
 
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
--- TODO: moeilijke gedeelte ...
+evaluate :: Kuifje -> S.StateT Env IO (Dist Int)
+evaluate (Return a) = do
+  env <- S.get
+  return (env M.! a)
 
--- data Stack = { S :: x Int }
--- Stack -> Kuifje -> Int
-evaluate :: Kuifje -> Int
-evaluate x Skip = x
+evaluate (Update statement restOfProgram) = do
+  env <- S.get
+  let resultInt = S.evalState (evalStatement statement) env
+  evaluate restOfProgram
 
-evaluate state (Update f next) = do
-  let newDist = f state
-      newState = sampleInt newDist
-  evaluate newState next
-
-evaluate state (If condStmt trueBranch falseBranch restOfProgram) = do
-  let condDist = condStmt state
-      condResult = sampleBool condDist
+evaluate (If condition trueBranch falseBranch restOfProgram) = do
+  env <- S.get
+  let resultDist = S.evalState (evalCond condition) env
+  condResult <- S.liftIO $ sampleBoolDist resultDist
   if condResult
-    then evaluate state trueBranch
-    else evaluate state falseBranch
+    then evaluate trueBranch
+    else evaluate falseBranch
+  evaluate restOfProgram
 
-evaluate state (While condStmt body restOfProgram) = do
-  let condDist = condStmt state
-      condResult = sampleBool condDist
+evaluate (While condition body restOfProgram) = do
+  env <- S.get
+  let resultDist = S.evalState (evalCond condition) env
+  condResult <- S.liftIO $ sampleBoolDist resultDist
   if condResult
     then do
-      let
-        newState = evaluate state body
-      evaluate newState (While condStmt body)
+      evaluate body
+      evaluate (While condition body restOfProgram)
     else
-      state
+      evaluate restOfProgram
 
-evaluate _ _ = error "nice"
+-- ---------------------------------------------------
+-- ---------------------------------------------------
 
--- point estimate for distribtuion.
-average :: Dist Int -> Rational
-average = sum . mapWithKey multiplyIntRational . runD
+statement1 :: Statement
+statement1 = Stat   "x" (Add (Lit 2 (Gaussian 0 1)) (Lit 1 (Gaussian 0 1)) (Gaussian 0 1))
 
-sampleInt :: Dist Int -> Int
-sampleInt =  rationalToInteger . average
+statement2 :: Cond
+statement2 = Comp (Equal (Var "x") (Lit 3 (Gaussian 0 1)) (Bernoulli 0))
 
-sampleBool :: Dist Bool -> Bool
-sampleBool = intToBool . sampleInt . boolDistToIntDist
+statement3 :: Statement
+statement3 = Stat   "x" (Sub (Lit 3 (Gaussian 0 1)) (Lit 1 (Gaussian 0 1)) (Gaussian 0 1))
 
--- -------
--- Utils
--- -------
+statement4 :: Statement
+statement4 = Stat   "t" (Mul (Var "x") (Lit 2 (Gaussian 0 1)) (Gaussian 0 1))
 
-multiplyIntRational :: Int -> Rational -> Rational
-multiplyIntRational int rational = toRational int * rational
-
-rationalToInteger :: Rational -> Int
-rationalToInteger = round
-
-boolToInt :: Bool -> Int
-boolToInt True  = 1
-boolToInt False = 0
-
-intToBool :: Int -> Bool
-intToBool 1 = True
-intToBool 0 = False
-intToBool _ = error "nice"
-
-boolDistToIntDist :: Dist Bool -> Dist Int
-boolDistToIntDist (D boolDist) = D $ M.mapKeysMonotonic boolToInt boolDist
-
--- ------------------------------ 
--- EXAMPLE: 
--- ------------------------------
-
-point :: (Ord a) => a -> Dist a
-point x = D $ singleton x 1
-
--- later nog complexere distributies toevoegen. 
-statement1 :: Int -> Dist Int
-statement1 x = point (x + 1)
-
-statement2 :: Int -> Dist Bool
-statement2 x = point (x < 0)
-
-statement3 :: Int -> Dist Int
-statement3 x = point (x - 2)
-
-statement4 :: Int -> Dist Int
-statement4 x = point (x + 1)
+statement5 :: Var
+statement5 = "x"
 
 program :: Kuifje
 program
-  = update' statement1 <>
-    while   statement2 (
-      update' statement3 <>
-      update' statement4
-    )
+  = update statement1 <> while statement2 (update statement3) (update statement4) <> returns statement5
 
-program' :: Kuifje
-program' = Update statement1 (While statement2 (Update statement3 (Update statement4 (Skip))))
-
-serialisedProgram :: String
-serialisedProgram = "Update statement1 (While statement2 (Update statement3 (Update statement4 (Skip))))"
+-- serialisedProgram :: String
+-- serialisedProgram = "Update statement1 (While statement2 (Update statement3 (Update statement4 (Return))))"
 
 main :: IO ()
-main = let
-  objProgram = P.parse kuifjeParser "" serialisedProgram
-  in case objProgram of
-    Left  err   -> print err
-    Right out   -> print (evaluate 0 out)
-
--- ---------------------------------
--- Calculator example
--- ---------------------------------
-
--- KAN DISTRIBUTIES NOG INTERSSANTER MAKEN.
--- context van calculator exmaple: 
--- soort van numerieke stabilieit visualisator, als x en y perturbaties bevatten, welke operaties heeft bredere distributies etc. 
--- conditionering van het probleem en numerieke stabiliteit etc. 
--- additive perturbaties
-
-type Perturbation = Rational
-
--- probs zijn hardcoded en de perturbatie ook.
--- sws bestaat er al zo iets die x en y perturbeert en omzet naar dist, en dan gwn addDist gebruiken.
-add :: Int -> Int -> Dist Int
-add x y =  D $ M.fromList [(result, correctProb), (result+perturbation, incorrectProb), (result-perturbation, incorrectProb)]
-  where
-    result = x + y
-    -- moet eig normale distributie error zijn. 
-    perturbation = 5
-    correctProb = 0.8
-    -- incorrectProb = (1 - correctProb) / 2  
-    incorrectProb = 0.1
-
-addDist :: Dist Int -> Dist Int -> Dist Int
-addDist (D distX) (D distY) = normalizeDist $ D $ M.fromListWith (+)
-    [ (result, resultProb * probX * probY)
-    | (x, probX) <- M.toList distX
-    , (y, probY) <- M.toList distY
-    , let resultDist = add x y
-    , (result, resultProb) <- M.toList (runD resultDist)
-    ]
-
-normalizeDist :: Dist a -> Dist a
-normalizeDist (D dist) = D $ M.map (/ totalProb) dist
-  where
-    totalProb = sum (M.elems dist)
-
-sub :: Int -> Int -> Dist Int
-sub x y =  D $ M.fromList [(result, correctProb), (result+perturbation, incorrectProb), (result-perturbation, incorrectProb)]
-  where
-    result = x - y
-    -- moet eig normale distributie error zijn. 
-    perturbation = 5
-    correctProb = 0.8
-    -- incorrectProb = (1 - correctProb) / 2  
-    incorrectProb = 0.1
-
-subDist :: Dist Int -> Dist Int -> Dist Int
-subDist (D distX) (D distY) = normalizeDist $ D $ M.fromListWith (+)
-    [ (result, resultProb * probX * probY)
-    | (x, probX) <- M.toList distX
-    , (y, probY) <- M.toList distY
-    , let resultDist = sub x y
-    , (result, resultProb) <- M.toList (runD resultDist)
-    ]
-
-mul :: Int -> Int -> Dist Int
-mul x y =  D $ M.fromList [(result, correctProb), (result+perturbation, incorrectProb), (result-perturbation, incorrectProb)]
-  where
-    result = x * y
-    perturbation = 5
-    correctProb = 0.8
-    -- incorrectProb = (1 - correctProb) / 2  
-    incorrectProb = 0.1
-
-mulDist :: Dist Int -> Dist Int -> Dist Int
-mulDist (D distX) (D distY) = normalizeDist $ D $ M.fromListWith (+)
-    [ (result, resultProb * probX * probY)
-    | (x, probX) <- M.toList distX
-    , (y, probY) <- M.toList distY
-    , let resultDist = mul x y
-    , (result, resultProb) <- M.toList (runD resultDist)
-    ]
--- more patterns if one of the dist is empty.
--- vooral door die div
-divide :: Int -> Int -> Dist Int
-divide x y
-  | y /= 0    = D $ M.fromList [(result, correctProb), (result+perturbation, incorrectProb), (result-perturbation, incorrectProb)]
-  | otherwise = D M.empty
-  where
-    result = x `div` y
-    perturbation = 5
-    correctProb = 0.8
-    incorrectProb = 0.1
-
-divDist :: Dist Int -> Dist Int -> Dist Int
-divDist (D distX) (D distY) = normalizeDist $ D $ M.fromListWith (+)
-    [ (result, resultProb * probX * probY)
-    | (x, probX) <- M.toList distX
-    , (y, probY) <- M.toList distY
-    , let resultDist = divide x y
-    , (result, resultProb) <- M.toList (runD resultDist)
-    ]
-
--- squareRoot :: Int -> Dist Float
--- squareRoot x = if x >= 0 then D $ singleton (sqrt $ fromIntegral x) 1 else D M.empty
-
--- power :: Int -> Int -> Dist Int
--- power x y = D $ singleton (x ^ y) 1
-
--- logarithm :: Int -> Dist Float
--- logarithm x = if x > 0 then D $ singleton (logBase 10 $ fromIntegral x) 1 else D M.empty 
-
--- extra functie die kunnen geimplementeerd worden in calculator, maar is moeilijk denk ik: 
--- -- TODO: (s ~> Bool)
--- isPrime :: Int -> Bool
--- isPrime n
---   | n <= 1 = False
---   | otherwise = all (\x -> n `mod` x /= 0) [2..intSquareRoot n]
-
--- intSquareRoot :: Int -> Int
--- intSquareRoot = round . sqrt . fromIntegral
+main = do
+  -- let objProgram = P.parse kuifjeParser "" serialisedProgram
+  --   in case objProgram of
+  --     Left  err   -> print err
+  --     Right out   -> print (evaluate 0 out)
+  let initialEnv = M.empty
+  result <- S.runStateT (evaluate program) initialEnv
+  -- TODO : visualise result and visualise initialEnv !
+  print ""
 
 
-generateHistogramTerminal :: Dist Int -> IO ()
-generateHistogramTerminal (D outcomes) =
-    putStrLn "Calculator Result Histogram" >>
-    mapM_ (\(x, p) -> putStrLn (show x ++ ": " ++ replicate (round $ p * 100) '*')) (M.toList outcomes)
+-- generateHistogramTerminal :: Dist Int -> IO ()
+-- generateHistogramTerminal (D outcomes) =
+--     putStrLn "Calculator Result Histogram" >>
+--     mapM_ (\(x, p) -> putStrLn (show x ++ ": " ++ replicate (round $ p * 100) '*')) (M.toList outcomes)
 
-exampleDist1 :: Dist Int
-exampleDist1 = D $ M.fromList [(1, 0.2), (2, 0.5), (3, 0.3)]
+-- exampleDist1 :: Dist Int
+-- exampleDist1 = D $ M.fromList [(1, 0.2), (2, 0.5), (3, 0.3)]
 
-exampleDist2 :: Dist Int
-exampleDist2 = D $ M.fromList [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
+-- exampleDist2 :: Dist Int
+-- exampleDist2 = D $ M.fromList [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
 
-main2 :: IO ()
-main2 = do
-    putStrLn "Example 1:"
-    generateHistogramTerminal exampleDist1
-    -- putStrLn "\nExample 2:"
-    -- generateHistogramFigure exampleDist2
+-- main2 :: IO ()
+-- main2 = do
+--     putStrLn "Example 1:"
+--     generateHistogramTerminal exampleDist1
+--     -- putStrLn "\nExample 2:"
+--     -- generateHistogramFigure exampleDist2
 
 
 
 
 
 
--- IDEA: 
+-- -- IDEA: 
 
--- Choose a Plotting Library: Select a Haskell plotting library such as haskell-plot or Chart. 
--- These libraries provide functions and types for creating a wide range of plots, 
--- including histograms, line charts, scatter plots, and heatmaps.
+-- -- Choose a Plotting Library: Select a Haskell plotting library such as haskell-plot or Chart. 
+-- -- These libraries provide functions and types for creating a wide range of plots, 
+-- -- including histograms, line charts, scatter plots, and heatmaps.
 
--- extra ideen : 
--- Extend the Evaluator: Modify the evaluator function to compute additional statistical metrics or 
--- data that can be used for plotting. For example, you may calculate the mean, median, variance, or 
--- other summary statistics of the stochastic processes or probability distributions.
+-- -- extra ideen : 
+-- -- Extend the Evaluator: Modify the evaluator function to compute additional statistical metrics or 
+-- -- data that can be used for plotting. For example, you may calculate the mean, median, variance, or 
+-- -- other summary statistics of the stochastic processes or probability distributions.
 
--- PROBLEEM2:
--- Hoe samplen van een Dist int type. 
--- blijkbaar kun je dat doen met de Dist monad.
--- sample :: Dist Int -> Int
--- of 
--- sample :: Dist Bool -> Bool
--- Mailtje sturen naar prof voor deze functie. 
+-- -- PROBLEEM2:
+-- -- Hoe samplen van een Dist int type. 
+-- -- blijkbaar kun je dat doen met de Dist monad.
+-- -- sample :: Dist Int -> Int
+-- -- of 
+-- -- sample :: Dist Bool -> Bool
+-- -- Mailtje sturen naar prof voor deze functie. 
 
--- quickCheck : 
--- 
--- 
+-- -- quickCheck : 
 
 
 
