@@ -117,15 +117,15 @@ data Kuifje
 
 instance Show Kuifje where
   show  Skip                = ""
-  show (Return  a        )  = "Return " ++ a ++ ";\n"
+  show (Return  a        )  = "return " ++ a ++ ";\n"
   show (Update s k1      )  = show s ++ "\n" ++ show k1
   show (If     c k1 k2 k3)  = "if (" ++ show c ++ "){\n" ++
-                                  show k1 ++ "}\n" ++ 
+                                  show k1 ++ "}\n" ++
                               "else (" ++ show k2 ++ "){\n" ++
-                                  show k3 ++ "}\n" 
+                                  show k3 ++ "}\n"
 
-  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++ 
-                                  show k1 ++ "}\n" ++ 
+  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++
+                                  show k1 ++ "}\n" ++
                                   show k2
 instance Semigroup Kuifje where
   Return a      <> l    = Return a -- FIXME? 
@@ -330,12 +330,8 @@ evalExpr (Var u) = do
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalStatement :: Statement -> S.State Env ()
-evalStatement (Stat var expr) = do
-    env <- S.get
-    resultDist <- evalExpr expr
-    let updatedEnv = M.insert var resultDist env
-    S.put updatedEnv
+evalStatement :: Statement -> Env -> Env
+evalStatement (Stat var expr) env = snd (S.runState (evalExpr expr) env)
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
@@ -416,14 +412,35 @@ evalCond (Comp c) = do evalComp c
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
+-- opletten, runState vs evalState !!
+
 evaluate :: Kuifje -> S.StateT Env IO (Dist Int)
+evaluate Skip = do
+  return (point 0)
+
 evaluate (Return a) = do
   env <- S.get
   return (env M.! a)
 
+-- is er geen beter manier om dit te doen? 
 evaluate (Update statement restOfProgram) = do
-  env <- S.get
-  let resultInt = S.evalState (evalStatement statement) env
+  initialEnv <- S.get
+  let result = evalStatement statement initialEnv
+  
+  S.put result
+
+  S.liftIO $ do 
+    putStrLn "result"
+    print result
+    putStrLn "before"
+    print initialEnv
+
+  result <- S.get
+
+  S.liftIO $ do 
+    putStrLn "after"
+    print result
+
   evaluate restOfProgram
 
 evaluate (If condition trueBranch falseBranch restOfProgram) = do
@@ -466,7 +483,7 @@ statement5 = "x"
 
 program1 :: Kuifje
 program1
-  = update statement1 <> while statement2 (update statement3) (update statement4) <> returns statement5
+  = update statement1 -- <> while statement2 (update statement3) (update statement4) -- <> returns statement5
 
 program2 :: Kuifje
 program2
@@ -481,6 +498,30 @@ printDist (D m) = mapM_ printEntry (M.toList m)
     where
         printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
 
+main :: IO ()
+main = do
+  print program1
+
+  let initialEnv = M.empty
+  let r = S.runStateT (evaluate program1) initialEnv
+  d <- r
+  print ""
+
+-- TODO : hoezo heeft print iets te maken of variable X intialised zal zijn of niet??
+
+
+-- import qualified Data.Map as M
+
+-- type Dist a = D (M.Map a Rational)
+-- printDist :: IO (Dist Int) -> IO ()
+-- printDist ioDist = do
+--   dist <- ioDist  -- Unwrap the IO action to get Dist Int
+--   case dist of
+--     D m -> mapM_ printEntry (M.toList m)
+--       where
+--         printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
+
+
 -- main :: IO ()
 -- main = do
 --   let initialEnv = M.empty
@@ -494,23 +535,4 @@ printDist (D m) = mapM_ printEntry (M.toList m)
 
 -- initialEnv :: Env
 -- initialEnv = M.singleton "Void" (D $ M.singleton 0 (1 DR.% 1))
-
-
-main :: IO ()
-main = do
-  print program1
-
-  let initialEnv = M.empty
-  result <- S.runStateT (evaluate program1) initialEnv
-
-  putStrLn "\nEnv:"
-  print (snd result)
-
-
-
-
-
-
-
-
 
