@@ -120,12 +120,12 @@ instance Show Kuifje where
   show (Return  a        )  = "return " ++ a ++ ";\n"
   show (Update s k1      )  = show s ++ "\n" ++ show k1
   show (If     c k1 k2 k3)  = "if (" ++ show c ++ "){\n" ++
-                                  show k1 ++ "}\n" ++
+                                  show k1 ++ "}\n" ++ 
                               "else (" ++ show k2 ++ "){\n" ++
-                                  show k3 ++ "}\n"
+                                  show k3 ++ "}\n" 
 
-  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++
-                                  show k1 ++ "}\n" ++
+  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++ 
+                                  show k1 ++ "}\n" ++ 
                                   show k2
 instance Semigroup Kuifje where
   Return a      <> l    = Return a -- FIXME? 
@@ -330,8 +330,12 @@ evalExpr (Var u) = do
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalStatement :: Statement -> Env -> Env
-evalStatement (Stat var expr) env = snd (S.runState (evalExpr expr) env)
+evalStatement :: Statement -> S.State Env ()
+evalStatement (Stat var expr) = do
+    env <- S.get
+    resultDist <- evalExpr expr
+    let updatedEnv = M.insert var resultDist env
+    S.put updatedEnv
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
@@ -415,7 +419,7 @@ evalCond (Comp c) = do evalComp c
 -- opletten, runState vs evalState !!
 
 evaluate :: Kuifje -> S.StateT Env IO (Dist Int)
-evaluate Skip = do
+evaluate Skip = do 
   return (point 0)
 
 evaluate (Return a) = do
@@ -425,22 +429,9 @@ evaluate (Return a) = do
 -- is er geen beter manier om dit te doen? 
 evaluate (Update statement restOfProgram) = do
   initialEnv <- S.get
-  let result = evalStatement statement initialEnv
-  
-  S.put result
-
-  S.liftIO $ do 
-    putStrLn "result"
-    print result
-    putStrLn "before"
-    print initialEnv
-
-  result <- S.get
-
-  S.liftIO $ do 
-    putStrLn "after"
-    print result
-
+  let result = S.runState (evalStatement statement) initialEnv
+  S.put (snd result)
+  updatedEnv <- S.get
   evaluate restOfProgram
 
 evaluate (If condition trueBranch falseBranch restOfProgram) = do
@@ -505,10 +496,7 @@ main = do
   let initialEnv = M.empty
   let r = S.runStateT (evaluate program1) initialEnv
   d <- r
-  print ""
-
--- TODO : hoezo heeft print iets te maken of variable X intialised zal zijn of niet??
-
+  print (snd d)
 
 -- import qualified Data.Map as M
 
