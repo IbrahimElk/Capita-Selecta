@@ -82,3 +82,10 @@ whileParser = do
   q <- kuifjeParser
   rightBracket
   return (While c p q)
+
+
+
+    -- let objProgram = P.parse kuifjeParser "" serialisedProgram
+  --   in case objProgram of
+  --     Left  err   -> print err
+  --     Right out   -> print (evaluate 0 out)

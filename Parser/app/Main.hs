@@ -23,8 +23,12 @@ import GHC.Natural
 import GHC.Real (fromRational)
 
 type Prob = Rational
-newtype Dist a = D { runD :: M.Map a Prob }
+data Dist a = D { runD :: M.Map a Prob }
+  deriving (Show)
+
 type a ~> b = a -> Dist b
+-- type Envs = String ~> Dist Int
+type Env = M.Map String (Dist Int)
 
 -- TODO: werk aan de parser. 
 -- TOOD: werk aan de evaluator. 
@@ -32,7 +36,10 @@ type a ~> b = a -> Dist b
 
 type Var = String
 data Statement = Stat Var Expr
-  deriving (Show)
+
+instance Show Statement where
+    show (Stat s k1) = s ++ " = " ++ show k1 ++ ";"
+
 
 data Expr = Add   Expr Expr ContDist
           | Sub   Expr Expr ContDist
@@ -43,22 +50,22 @@ data Expr = Add   Expr Expr ContDist
           | Var   Var -- eerder gedeclareerde variablen kunnen hier gebruikt worden.
 
 instance Show Expr where
-  show (Add   e1 e2 c)  = "[ " ++ show e1 ++ " + " ++ show e2 ++ " CDist " ++ show c ++ " ] "
-  show (Sub   e1 e2 c)  = "[ " ++ show e1 ++ " - " ++ show e2 ++ " CDist " ++ show c ++ " ] "
-  show (Mul   e1 e2 c)  = "[ " ++ show e1 ++ " * " ++ show e2 ++ " CDist " ++ show c ++ " ]"
-  show (Div   e1 e2 c)  = "[ " ++ show e1 ++ " / " ++ show e2 ++ " CDist " ++ show c ++ " ]"
-  show (Mod   e1 e2 c)  = "[ " ++ show e1 ++ " % " ++ show e2 ++ " CDist " ++ show c ++ " ]"
-  show (Lit   i c)      = "[ Lit " ++ show i ++ " CDist " ++ show c ++ " ]"
-  show (Var   v)        = "[ Var"  ++ show v  ++ " ]"
+  show (Add   e1 e2 c)  = "(" ++ show e1 ++ "+" ++ show e2 ++ ")"
+  show (Sub   e1 e2 c)  = "(" ++ show e1 ++ "-" ++ show e2 ++ ")"
+  show (Mul   e1 e2 c)  = "(" ++ show e1 ++ "*" ++ show e2 ++ ")"
+  show (Div   e1 e2 c)  = "(" ++ show e1 ++ "/" ++ show e2 ++ ")"
+  show (Mod   e1 e2 c)  = "(" ++ show e1 ++ "%" ++ show e2 ++ ")"
+  show (Lit   i c)      = show i
+  show (Var   v)        = v
 
 data Cond = And Cond Cond DscrDist
           | Or  Cond Cond DscrDist
           | Comp Comp
 
 instance Show Cond where
-  show (And  c1 c2 d)               = "( " ++ show c1 ++ " && "  ++ show c2  ++ " )"
-  show (Or   c1 c2 d)               = "( " ++ show c1 ++ " || "  ++ show c2  ++ " )"
-  show (Comp c      )               = "( " ++ show c  ++ " )"
+  show (And  c1 c2 d)               = "(" ++ show c1 ++ " && "  ++ show c2  ++ ")"
+  show (Or   c1 c2 d)               = "(" ++ show c1 ++ " || "  ++ show c2  ++ ")"
+  show (Comp c      )               = "(" ++ show c  ++ ")"
 
 data Comp = Equal        Expr Expr DscrDist
           | NotEqual     Expr Expr DscrDist
@@ -102,30 +109,37 @@ instance Show DscrDist where
 
 
 data Kuifje
-  = Return  Var
+  = Skip
+  | Return  Var
   | Update  Statement Kuifje
   | If      Cond Kuifje Kuifje Kuifje
   | While   Cond Kuifje Kuifje
 
 instance Show Kuifje where
-  show (Return  a        )  = "Return " ++ show a
-  show (Update s k1      )  = "Update " ++ show s ++ "(" ++ show k1 ++ ")"
-  show (If     c k1 k2 k3)  = "If "     ++ show c ++ "(" ++ show k1 ++ ")" ++ "(" ++ show k2 ++ ")"  ++ "(" ++ show k3 ++ ")"
-  show (While  c k1 k2   )  = "While "  ++ show c ++ "(" ++ show k2 ++ ")" ++ "(" ++ show k2 ++ ")"
+  show  Skip                = ""
+  show (Return  a        )  = "Return " ++ a ++ ";\n"
+  show (Update s k1      )  = show s ++ "\n" ++ show k1
+  show (If     c k1 k2 k3)  = "if (" ++ show c ++ "){\n" ++
+                                  show k1 ++ "}\n" ++ 
+                              "else (" ++ show k2 ++ "){\n" ++
+                                  show k3 ++ "}\n" 
 
+  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++ 
+                                  show k1 ++ "}\n" ++ 
+                                  show k2
 instance Semigroup Kuifje where
-  Return a      <> l    = l
+  Return a      <> l    = Return a -- FIXME? 
+  Skip          <> l    = l
   Update s p    <> l    = Update s (p <> l)
   While c p q   <> l    = While c p (q <> l)
   If c p q r    <> l    = If c p q (r <> l)
 
 instance Monoid Kuifje where
-  mempty = Return "void"
-  mappend :: Kuifje -> Kuifje -> Kuifje
+  mempty = Skip
   mappend = (<>)
 
 skip :: Kuifje
-skip = Return "void"
+skip = Skip
 
 update :: Statement -> Kuifje
 update f = Update f skip
@@ -160,10 +174,6 @@ hardcodedDscrDist = D $ M.fromList [(True, 1 DR.% 2), (False, 1 DR.% 2)]
 -- ------------------------------------
 -- evaluator function : 
 -- ------------------------------------
-
--- type Envs = String ~> Dist Int
-type Env = M.Map String (Dist Int)
-
 point :: (Ord a) => a -> Dist a
 point x = D $ singleton x 1
 
@@ -454,68 +464,48 @@ statement4 = Stat   "t" (Mul (Var "x") (Lit 2 (Gaussian 0 1)) (Gaussian 0 1))
 statement5 :: Var
 statement5 = "x"
 
-program :: Kuifje
-program
+program1 :: Kuifje
+program1
   = update statement1 <> while statement2 (update statement3) (update statement4) <> returns statement5
+
+program2 :: Kuifje
+program2
+  = update statement1
 
 -- serialisedProgram :: String
 -- serialisedProgram = "Update statement1 (While statement2 (Update statement3 (Update statement4 (Return))))"
 
+-- for development purposes: 
+printDist :: Dist Int -> IO ()
+printDist (D m) = mapM_ printEntry (M.toList m)
+    where
+        printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
+
+-- main :: IO ()
+-- main = do
+--   let initialEnv = M.empty
+--   result <- S.runStateT (evaluate program2) initialEnv
+
+--   putStrLn "Dist Int:"
+--   printDist (fst result)
+
+--   putStrLn "\nEnv:"
+--   print (snd result)
+
+-- initialEnv :: Env
+-- initialEnv = M.singleton "Void" (D $ M.singleton 0 (1 DR.% 1))
+
+
 main :: IO ()
 main = do
-  -- let objProgram = P.parse kuifjeParser "" serialisedProgram
-  --   in case objProgram of
-  --     Left  err   -> print err
-  --     Right out   -> print (evaluate 0 out)
+  print program1
+
   let initialEnv = M.empty
-  result <- S.runStateT (evaluate program) initialEnv
-  -- TODO : visualise result and visualise initialEnv !
-  print ""
+  result <- S.runStateT (evaluate program1) initialEnv
 
+  putStrLn "\nEnv:"
+  print (snd result)
 
--- generateHistogramTerminal :: Dist Int -> IO ()
--- generateHistogramTerminal (D outcomes) =
---     putStrLn "Calculator Result Histogram" >>
---     mapM_ (\(x, p) -> putStrLn (show x ++ ": " ++ replicate (round $ p * 100) '*')) (M.toList outcomes)
-
--- exampleDist1 :: Dist Int
--- exampleDist1 = D $ M.fromList [(1, 0.2), (2, 0.5), (3, 0.3)]
-
--- exampleDist2 :: Dist Int
--- exampleDist2 = D $ M.fromList [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
-
--- main2 :: IO ()
--- main2 = do
---     putStrLn "Example 1:"
---     generateHistogramTerminal exampleDist1
---     -- putStrLn "\nExample 2:"
---     -- generateHistogramFigure exampleDist2
-
-
-
-
-
-
--- -- IDEA: 
-
--- -- Choose a Plotting Library: Select a Haskell plotting library such as haskell-plot or Chart. 
--- -- These libraries provide functions and types for creating a wide range of plots, 
--- -- including histograms, line charts, scatter plots, and heatmaps.
-
--- -- extra ideen : 
--- -- Extend the Evaluator: Modify the evaluator function to compute additional statistical metrics or 
--- -- data that can be used for plotting. For example, you may calculate the mean, median, variance, or 
--- -- other summary statistics of the stochastic processes or probability distributions.
-
--- -- PROBLEEM2:
--- -- Hoe samplen van een Dist int type. 
--- -- blijkbaar kun je dat doen met de Dist monad.
--- -- sample :: Dist Int -> Int
--- -- of 
--- -- sample :: Dist Bool -> Bool
--- -- Mailtje sturen naar prof voor deze functie. 
-
--- -- quickCheck : 
 
 
 
