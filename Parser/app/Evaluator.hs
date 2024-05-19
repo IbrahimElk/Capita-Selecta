@@ -1,38 +1,22 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TypeOperators #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
+module Evaluator (evaluate, Kuifje, Statement) where
 
-module Main (main) where
--- import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.State as S
 import qualified Control.Monad.IO.Class as IO
 import qualified Data.Ratio as DR
 import qualified System.Random as R
 import qualified Data.Map as M
 
-import qualified Text.Parsec as P
-import qualified Text.Parsec.String as PS
-
 import Data.Map.Strict ( elems, mapWithKey, singleton )
 import GHC.Natural
 import GHC.Real (fromRational)
 
 type Prob = Rational
-data Dist a = D { runD :: M.Map a Prob }
+newtype Dist a = D { runD :: M.Map a Prob }
   deriving (Show)
 
-type a ~> b = a -> Dist b
+-- type a ~> b = a -> Dist b
 -- type Envs = String ~> Dist Int
 type Env = M.Map String (Dist Int)
-
--- TODO: werk aan de parser. 
--- TOOD: werk aan de evaluator. 
--- (gebruik voor nu de 'mean' van de distributie ipv samplen.)
 
 type Var = String
 data Statement = Stat Var Expr
@@ -474,14 +458,11 @@ statement5 = "x"
 
 program1 :: Kuifje
 program1
-  = update statement1 -- <> while statement2 (update statement3) (update statement4) -- <> returns statement5
+  = update statement1 <> while statement2 (update statement3) (update statement4) <> returns statement5
 
 program2 :: Kuifje
 program2
   = update statement1
-
--- serialisedProgram :: String
--- serialisedProgram = "Update statement1 (While statement2 (Update statement3 (Update statement4 (Return))))"
 
 -- for development purposes: 
 printDist :: Dist Int -> IO ()
@@ -489,38 +470,21 @@ printDist (D m) = mapM_ printEntry (M.toList m)
     where
         printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
 
+
+
+-- TODO: werk aan de parser. 
+-- TODO: tijd om te visualiseren 
+-- TODO: quickeck functies voor alles. 
+
 main :: IO ()
 main = do
-  print program1
+  print program1 -- dit is wat je moet schrijven en ik zal dit parsen naar de Kuifje AST. 
 
   let initialEnv = M.empty
   let r = S.runStateT (evaluate program1) initialEnv
   d <- r
+  putStrLn "Nice"
   print (snd d)
 
--- import qualified Data.Map as M
-
--- type Dist a = D (M.Map a Rational)
--- printDist :: IO (Dist Int) -> IO ()
--- printDist ioDist = do
---   dist <- ioDist  -- Unwrap the IO action to get Dist Int
---   case dist of
---     D m -> mapM_ printEntry (M.toList m)
---       where
---         printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
-
-
--- main :: IO ()
--- main = do
---   let initialEnv = M.empty
---   result <- S.runStateT (evaluate program2) initialEnv
-
---   putStrLn "Dist Int:"
---   printDist (fst result)
-
---   putStrLn "\nEnv:"
---   print (snd result)
-
--- initialEnv :: Env
--- initialEnv = M.singleton "Void" (D $ M.singleton 0 (1 DR.% 1))
-
+  putStrLn "result" 
+  print (fst d)

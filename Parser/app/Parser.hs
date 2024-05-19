@@ -1,19 +1,29 @@
 
 module Parser (kuifjeParser) where
 
+import Evaluator (Kuifje, Statement)
 import qualified Text.Parsec as P
 import qualified Text.Parsec.String as PS
 
-import Main (Kuifje, Statement)
 -- we parsen kuifje programma in haskell.
 -- de parser programma laten runnen maar zo met args 
 -- bv. parse somefile.kuifje --seed=123
 -- seed is dan gebruikt voor random number generation.
 
-
 -- -----------------------------------------
 -- IMPLEMENTATIE VAN EEN PARSER:
 -- -----------------------------------------
+
+-- FIXME : aslt mogelijk is om dat eerst uit een file te lezen, zou beter zijn. 
+-- source code example.
+-- serialisedProgram :: String
+-- serialisedProgram = 
+-- x = (2+1);
+-- while ((( x == 3 ))){
+-- x = (3-1);
+-- }
+-- t = (x*2);
+-- return x;
 
 kuifjeParser :: PS.Parser Kuifje
 kuifjeParser = skipParser P.<|> updateParser P.<|> ifParser P.<|> whileParser
@@ -83,9 +93,7 @@ whileParser = do
   rightBracket
   return (While c p q)
 
-
-
-    -- let objProgram = P.parse kuifjeParser "" serialisedProgram
-  --   in case objProgram of
-  --     Left  err   -> print err
-  --     Right out   -> print (evaluate 0 out)
+-- let objProgram = P.parse kuifjeParser "" serialisedProgram
+--   in case objProgram of
+--     Left  err   -> print err
+--     Right out   -> print (evaluate 0 out)

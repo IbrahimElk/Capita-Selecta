@@ -46,3 +46,5 @@ hardcodedDscrDist :: Dist Bool
 hardcodedDscrDist = D $ M.fromList [(True, 1 DR.% 2), (False, 1 DR.% 2)]
 
 
+
+-- per operatie dus Add, SUb , store hier hun noise distrobutions i guess. 
