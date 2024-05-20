@@ -1,39 +1,12 @@
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use <$>" #-}
+module Parser (parser) where
 
-module Parser where
-
-import Evaluator (evaluate)
-import qualified Representation as Rp
-import qualified Text.Parsec as P
 import qualified Text.Parsec.String as PS
-import Control.Monad.IO.Class (liftIO)
-import Debug.Trace (trace)
+import qualified Representation as Rp
 import qualified Distributions as Ds
+import qualified Text.Parsec as P
 import qualified Data.Char as C 
 
--- -----------------------------------------
--- IMPLEMENTATIE VAN EEN PARSER:
--- -----------------------------------------
-
--- import Data.List.Utils (replace)
--- we parsen kuifje programma in haskell.
--- de parser programma laten runnen maar zo met args 
--- bv. parse somefile.kuifje --seed=123
--- seed is dan gebruikt voor random number generation.
-
--- FIXME : aslt mogelijk is om dat eerst uit een file te lezen, zou beter zijn. 
--- source code example.
--- serialisedProgram :: String
--- serialisedProgram = 
--- x = (2+1);
--- while ((( x == 3 ))){
--- x = (3-1);
--- }
--- t = (x*2);
--- return x;
-
+import Debug.Trace (trace)
 
 -- -------------------------------------------------------
 -- -------------------------------------------------------
@@ -90,7 +63,6 @@ muldivop = mulop P.<|> divop P.<|> modop
 -- -------------------------------------------------------------
 -- -------------------------------------------------------------
 
-
 factor :: PS.Parser Rp.Expr
 factor = digit P.<|> variable P.<|> do {symb "("; n <- parseExpr ; symb ")"; return n}
 
@@ -99,7 +71,6 @@ term = factor `P.chainl1` muldivop
 
 parseExpr :: PS.Parser Rp.Expr
 parseExpr = term `P.chainl1` addsubop 
-
 
 -- -------------------------------------------------------
 -- -------------------------------------------------------
@@ -273,8 +244,8 @@ parseWhile = do
 removeNewlines :: String -> String
 removeNewlines = filter (/= '\n')
 
-main :: IO ()
-main = do
+parser :: IO Rp.Kuifje
+parser = do
   contents <- readFile "test.kuifje"
   print contents
 
@@ -283,10 +254,8 @@ main = do
   let parsedProgram = P.parse parseKuifje "" modifiedContents
   case parsedProgram of
     Left err -> do 
-      print "error"
-      print err 
+      error "The kuifje program contains syntax errors, Sukkel. :)"
     Right program -> do 
-      print "program"
-      print program
+      return program
   
 
