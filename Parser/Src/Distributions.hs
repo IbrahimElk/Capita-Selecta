@@ -1,14 +1,13 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-module Distributions (addDist, subDist, mulDist, divDist, litDist, boolDist, contDist, dscrDist) where
+module Src.Distributions (addDist, subDist, mulDist, divDist, litDist, boolDist, contDist, dscrDist) where
 
 -- import qualified Main as M
 import qualified Data.Ratio as DR
 import qualified Data.Map as M
-import qualified Representation as Rp
-type Prob = Rational
-newtype Dist a = D { runD :: M.Map a Prob }
+import qualified Src.Representation as Rp
+import Src.Representation (Dist(..),Env ) 
 
 -- ------------------------------------
 -- random function : 
@@ -26,7 +25,7 @@ hardcodedContDist = D $ M.fromList
 dscrDist :: Rp.DscrDist -> Dist Bool
 dscrDist _ =  hardcodedDscrDist
 
-hardcodedDscrDist :: Dist Bool
+hardcodedDscrDist ::Dist Bool
 hardcodedDscrDist = D $ M.fromList [(True, 1 DR.% 2), (False, 1 DR.% 2)]
 
 

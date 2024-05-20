@@ -1,7 +1,9 @@
-module Evaluator (evaluate, Dist) where
+module Src.Evaluator (evaluate) where
 
-import qualified Representation as Rp
-import qualified Distributions as Ds
+import qualified Src.Representation as Rp 
+import Src.Representation (Dist(..),Env ) 
+
+import qualified Src.Distributions as Ds
 import qualified Control.Monad.State as S
 import qualified Control.Monad.IO.Class as IO
 import qualified Data.Ratio as DR
@@ -12,37 +14,10 @@ import Data.Map.Strict ( elems, mapWithKey, singleton )
 import GHC.Natural
 import GHC.Real (fromRational)
 
-type Prob = Rational
-newtype Dist a = D { runD :: M.Map a Prob }
-  deriving (Show)
-
--- type a ~> b = a -> Dist b
--- type Envs = String ~> Dist Int
-type Env = M.Map String (Dist Int)
-
--- ------------------------------------
--- random function : 
--- ------------------------------------
-
-contDist :: Rp.ContDist -> Dist Int
-contDist _ =  hardcodedContDist
-
-hardcodedContDist :: Dist Int
-hardcodedContDist = D $ M.fromList
-    [ (x, p) | x <- [0..19]
-             , let p = if even x then 1 DR.% 20 else 3 DR.% 100
-    ]
-
-dscrDist :: Rp.DscrDist -> Dist Bool
-dscrDist _ =  hardcodedDscrDist
-
-hardcodedDscrDist :: Dist Bool
-hardcodedDscrDist = D $ M.fromList [(True, 1 DR.% 2), (False, 1 DR.% 2)]
-
 -- ------------------------------------
 -- evaluator function : 
 -- ------------------------------------
-point :: (Ord a) => a -> Dist a
+point :: (Ord a) => a -> Rp.Dist a
 point x = D $ singleton x 1
 
 sampleBoolDist :: Dist Bool -> IO Bool
@@ -150,7 +125,7 @@ evalExpr (Rp.Add u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = sumDistributions x y
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation z l)  --additive noise added
 
 evalExpr (Rp.Sub u v d) = do
@@ -158,7 +133,7 @@ evalExpr (Rp.Sub u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = subDistributions x y
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation z l)
 
 evalExpr (Rp.Mul u v d) = do
@@ -166,7 +141,7 @@ evalExpr (Rp.Mul u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = mulDistributions x y
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation z l)
 
 evalExpr (Rp.Div u v d) = do
@@ -174,7 +149,7 @@ evalExpr (Rp.Div u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = divDistributions x y
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation z l)
 
 evalExpr (Rp.Mod u v d) = do
@@ -182,11 +157,11 @@ evalExpr (Rp.Mod u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = modDistributions x y
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation z l)
 
 evalExpr (Rp.Lit u d) = do
-  let l = contDist d
+  let l = Ds.contDist d
   return (addPerturbation (point u) l)
 
 evalExpr (Rp.Var u) = do
@@ -214,7 +189,7 @@ evalComp (Rp.Equal e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
   let z       = equalDistributions resultDist1 resultDist2
-  let l       = dscrDist d
+  let l       = Ds.dscrDist d
   return (addBoolPerturbation z l)
 
 evalComp (Rp.NotEqual e1 e2 d) = do
@@ -222,7 +197,7 @@ evalComp (Rp.NotEqual e1 e2 d) = do
   resultDist2 <- evalExpr e2
 
   let distBool = notEqualDistributions resultDist1 resultDist2
-  let l        = dscrDist d
+  let l        = Ds.dscrDist d
   return (addBoolPerturbation distBool l)
 
 evalComp (Rp.LessThan e1 e2 d) = do
@@ -230,7 +205,7 @@ evalComp (Rp.LessThan e1 e2 d) = do
   resultDist2 <- evalExpr e2
 
   let distBool    = lessThanDistributions resultDist1 resultDist2
-  let l       = dscrDist d
+  let l       = Ds.dscrDist d
   let resultDist  = addBoolPerturbation distBool l
   return resultDist
 
@@ -239,7 +214,7 @@ evalComp (Rp.GreaterThan e1 e2 d) = do
   resultDist2 <- evalExpr e2
 
   let distBool    = greaterThanDistributions resultDist1 resultDist2
-  let l           = dscrDist d
+  let l           = Ds.dscrDist d
   return $ addBoolPerturbation distBool l
 
 evalComp (Rp.LessThanOrEqual e1 e2 d) = do
@@ -247,7 +222,7 @@ evalComp (Rp.LessThanOrEqual e1 e2 d) = do
   resultDist2 <- evalExpr e2
 
   let distBool    = lessThanOrEqualDistributions resultDist1 resultDist2
-  let l           = dscrDist d
+  let l           = Ds.dscrDist d
   return $ addBoolPerturbation distBool l
 
 evalComp (Rp.GreaterThanOrEqual e1 e2 d) = do
@@ -255,7 +230,7 @@ evalComp (Rp.GreaterThanOrEqual e1 e2 d) = do
   resultDist2 <- evalExpr e2
 
   let distBool    = greaterThanOrEqualDistributions resultDist1 resultDist2
-  let l           = dscrDist d
+  let l           = Ds.dscrDist d
   return $ addBoolPerturbation distBool l
 
 -- ---------------------------------------------------
@@ -267,7 +242,7 @@ evalCond (Rp.And e1 e2 d) = do
   resultDist2 <- evalCond e2
 
   let distBool    = andDistributions resultDist1 resultDist2
-  let l           = dscrDist d
+  let l           = Ds.dscrDist d
   let resultDist  = addBoolPerturbation distBool l
   return resultDist
 
@@ -276,7 +251,7 @@ evalCond (Rp.Or e1 e2 d) = do
   resultDist2 <- evalCond e2
 
   let distBool    = orDistributions resultDist1 resultDist2
-  let l           = dscrDist d
+  let l           = Ds.dscrDist d
   return $ addBoolPerturbation distBool l
 
 evalCond (Rp.Comp c) = do evalComp c

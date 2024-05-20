@@ -1,6 +1,19 @@
-module Representation (Kuifje(..), Statement(..), Expr(..), Cond(..), Comp(..), Variable,
-    ContDist(..), DscrDist(..), skip, returns, update, while, cond ) where
+module Src.Representation (
+    Kuifje(..), Statement(..), Expr(..), Cond(..), Comp(..), Variable,
+    ContDist(..), DscrDist(..), skip, returns, update, while, cond,
+    Dist(..), Prob(..), Env(..) ) where
 import qualified Data.Map as M
+
+
+
+type Prob = Rational
+newtype Dist a = D { runD :: M.Map a Prob }
+  deriving (Show)
+
+-- type a ~> b = a -> Dist b
+-- type Envs = String ~> Dist Int
+type Env = M.Map String (Dist Int)
+
 
 type Variable = String
 data Statement = Stat Variable Expr

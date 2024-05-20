@@ -25,22 +25,25 @@ source-repository head
 
 library
   exposed-modules:
+      Distributions
+      Evaluator
       Lib
-  -- other-modules:
-  --     Paths_Parser
-  -- autogen-modules:
-  --     Paths_Parser
+      Parser
+      Representation
+      Visualisator
+  other-modules:
+      Paths_Parser
+  autogen-modules:
+      Paths_Parser
   hs-source-dirs:
-      src
+      Src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       Chart
-    , gnuplot
-    , process == 1.6.19.0
-    , Chart-diagrams
-    , random-fu
-    , containers
+    , QuickCheck
     , base >=4.7 && <5
+    , containers
+    , gnuplot
     , mtl
     , parsec
     , random
@@ -51,24 +54,23 @@ executable Parser-exe
   other-modules:
       Distributions
       Evaluator
+      Lib
       Parser
       Representation
       Visualisator
-  -- autogen-modules:
-  --     Paths_Parser
+      Paths_Parser
+  autogen-modules:
+      Paths_Parser
   hs-source-dirs:
-      app
+      Src
+      App
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Chart
-    , gnuplot
-    , process == 1.6.19.0
-    , Chart-cairo  
-    , Chart-diagrams
-    , random-fu
-    , containers
-    , Parser
+    , QuickCheck
     , base >=4.7 && <5
+    , containers
+    , gnuplot
     , mtl
     , parsec
     , random
@@ -76,23 +78,28 @@ executable Parser-exe
 
 test-suite Parser-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  -- other-modules:
-  --     Paths_Parser
-  -- autogen-modules:
-  --     Paths_Parser
+  main-is: DistributionsTest.hs
+  other-modules:
+      DistributionsTest
+      Distributions
+      Evaluator
+      Lib
+      Parser
+      Representation
+      Visualisator
+      Main
+      Paths_Parser
+  autogen-modules:
+      Paths_Parser
   hs-source-dirs:
-      test
+      Parser
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Chart
-    , gnuplot
-    , process == 1.6.19.0
-    , Chart-diagrams
-    , random-fu
-    , containers
-    , Parser
+    , QuickCheck
     , base >=4.7 && <5
+    , containers
+    , gnuplot
     , mtl
     , parsec
     , random

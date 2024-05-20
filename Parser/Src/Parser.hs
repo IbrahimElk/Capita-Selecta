@@ -1,8 +1,8 @@
-module Parser (parser) where
+module Src.Parser (parser) where
 
 import qualified Text.Parsec.String as PS
-import qualified Representation as Rp
-import qualified Distributions as Ds
+import qualified Src.Representation as Rp
+import qualified Src.Distributions as Ds
 import qualified Text.Parsec as P
 import qualified Data.Char as C
 
