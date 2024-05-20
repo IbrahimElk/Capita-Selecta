@@ -108,9 +108,9 @@ parseExpr = term `P.chainl1` addsubop
 -- -------------------------------------------------------
 
 parseComp :: PS.Parser Rp.Comp
-parseComp = P.try parseEqual -- P.<|> P.try parseNotEqual 
-  -- P.<|> P.try parseLessThan P.<|> P.try parseGreaterThan 
-  -- P.<|> P.try parseLessThanOrEqual P.<|> P.try parseGreaterThanOrEqual
+parseComp = P.try parseEqual  P.<|> P.try parseNotEqual 
+  P.<|> P.try parseLessThan P.<|> P.try parseGreaterThan 
+  P.<|> P.try parseLessThanOrEqual P.<|> P.try parseGreaterThanOrEqual
 
 parseEqual :: PS.Parser Rp.Comp
 parseEqual = do
@@ -169,7 +169,7 @@ parseGreaterThanOrEqual = do
   return (Rp.GreaterThanOrEqual e1 e2 Ds.boolDist)
 
 parseCond :: PS.Parser Rp.Cond
-parseCond = parseCompCond -- P.<|> parseAndCond P.<|> parseOrCond
+parseCond = parseCompCond P.<|> parseAndCond P.<|> parseOrCond
 
 parseCompCond :: PS.Parser Rp.Cond
 parseCompCond = do
@@ -246,6 +246,7 @@ parseIf = do
   P.char '}'
   P.spaces
   P.string "else"
+  P.spaces
   P.char '{'
   k2 <- parseKuifje
   P.char '}'
@@ -274,15 +275,12 @@ removeNewlines = filter (/= '\n')
 
 main :: IO ()
 main = do
-  contents <- readFile "test.txt"
-  -- remove all "\n" from contents. 
+  contents <- readFile "test.kuifje"
   print contents
+
+  -- remove all "\n"
   let modifiedContents = removeNewlines contents
-  -- let modifiedContents = "x = (2+1);while ((( x == 3 ))){x = (3-1);}t = (x*2);return x;"
-  print "begin"
-  print modifiedContents
   let parsedProgram = P.parse parseKuifje "" modifiedContents
-  print "end"
   case parsedProgram of
     Left err -> do 
       print "error"

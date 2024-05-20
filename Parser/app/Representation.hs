@@ -88,9 +88,11 @@ instance Show Kuifje where
   show (Return  a        )  = "return " ++ a ++ ";\n"
   show (Update s k1      )  = show s ++ "\n" ++ show k1
   show (If     c k1 k2 k3)  = "if (" ++ show c ++ "){\n" ++
-                                  show k1 ++ "}\n" ++ 
-                              "else (" ++ show k2 ++ "){\n" ++
-                                  show k3 ++ "}\n" 
+                                  show k1 ++ 
+                                "}\n" ++ 
+                              "else {\n" ++ 
+                                show k2 ++ "}\n" ++
+                                show k3 
 
   show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++ 
                                   show k1 ++ "}\n" ++ 

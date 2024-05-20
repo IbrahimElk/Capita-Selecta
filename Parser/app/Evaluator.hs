@@ -345,12 +345,19 @@ statement5 = "x"
 
 program1 :: Rp.Kuifje
 program1
-  = Rp.update statement1 <> 
+  = Rp.update statement1 <>  
+    -- x = 2 + 1
     Rp.while statement20 (Rp.update statement3) (Rp.update statement4) <> 
+    -- x = 2 + 1; while (x == 3) { x = 3 - 1;} t = x * 2;
     Rp.update statement1 <>
+    -- x = 2 + 1; while (x == 3) { x = 3 - 1;} t = x * 2; x = 2 + 1; 
     Rp.cond statement21 (Rp.update statement3) (Rp.update statement4) (Rp.update statement1) <>
+    -- x = 2 + 1; while (x == 3) { x = 3 - 1;} t = x * 2; x = 2 + 1; 
+    -- if ( x != 3) { x = 3 - 1;} else{t = x * 2} x = 2 + 1;
     Rp.returns statement5
-
+    -- x = 2 + 1; while (x == 3) { x = 3 - 1;} t = x * 2; x = 2 + 1; 
+    -- if ( x != 3) { x = 3 - 1;} else{t = x * 2} x = 2 + 1;
+    -- return x
 
 program2 :: Rp.Kuifje
 program2
