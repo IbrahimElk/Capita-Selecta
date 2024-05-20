@@ -1,5 +1,7 @@
-module Evaluator (evaluate, Kuifje, Statement) where
+module Evaluator (evaluate) where
 
+import qualified Representation as Rp
+import qualified Distributions as Ds
 import qualified Control.Monad.State as S
 import qualified Control.Monad.IO.Class as IO
 import qualified Data.Ratio as DR
@@ -18,129 +20,11 @@ newtype Dist a = D { runD :: M.Map a Prob }
 -- type Envs = String ~> Dist Int
 type Env = M.Map String (Dist Int)
 
-type Var = String
-data Statement = Stat Var Expr
-
-instance Show Statement where
-    show (Stat s k1) = s ++ " = " ++ show k1 ++ ";"
-
-
-data Expr = Add   Expr Expr ContDist
-          | Sub   Expr Expr ContDist
-          | Mul   Expr Expr ContDist
-          | Div   Expr Expr ContDist
-          | Mod   Expr Expr ContDist -- modulo operator. 
-          | Lit   Int ContDist
-          | Var   Var -- eerder gedeclareerde variablen kunnen hier gebruikt worden.
-
-instance Show Expr where
-  show (Add   e1 e2 c)  = "(" ++ show e1 ++ "+" ++ show e2 ++ ")"
-  show (Sub   e1 e2 c)  = "(" ++ show e1 ++ "-" ++ show e2 ++ ")"
-  show (Mul   e1 e2 c)  = "(" ++ show e1 ++ "*" ++ show e2 ++ ")"
-  show (Div   e1 e2 c)  = "(" ++ show e1 ++ "/" ++ show e2 ++ ")"
-  show (Mod   e1 e2 c)  = "(" ++ show e1 ++ "%" ++ show e2 ++ ")"
-  show (Lit   i c)      = show i
-  show (Var   v)        = v
-
-data Cond = And Cond Cond DscrDist
-          | Or  Cond Cond DscrDist
-          | Comp Comp
-
-instance Show Cond where
-  show (And  c1 c2 d)               = "(" ++ show c1 ++ " && "  ++ show c2  ++ ")"
-  show (Or   c1 c2 d)               = "(" ++ show c1 ++ " || "  ++ show c2  ++ ")"
-  show (Comp c      )               = "(" ++ show c  ++ ")"
-
-data Comp = Equal        Expr Expr DscrDist
-          | NotEqual     Expr Expr DscrDist
-          | LessThan     Expr Expr DscrDist
-          | GreaterThan  Expr Expr DscrDist
-          | LessThanOrEqual    Expr Expr DscrDist
-          | GreaterThanOrEqual Expr Expr DscrDist
-
-instance Show Comp where
-  show (Equal        e1 e2 d)       = "( " ++ show e1 ++ " == "  ++ show e2  ++ " )"
-  show (NotEqual     e1 e2 d)       = "( " ++ show e1 ++ " != "  ++ show e2  ++ " )"
-  show (LessThan     e1 e2 d)       = "( " ++ show e1 ++ " < "   ++ show e2  ++ " )"
-  show (GreaterThan  e1 e2 d)       = "( " ++ show e1 ++ " > "   ++ show e2  ++ " )"
-  show (LessThanOrEqual    e1 e2 d) = "( " ++ show e1 ++ " <= "  ++ show e2  ++ " )"
-  show (GreaterThanOrEqual e1 e2 d) = "( " ++ show e1 ++ " >= "  ++ show e2  ++ " )"
-
-type Mu     = Double
-type Sigma  = Double
-type Alpha  = Double
-type Beta   = Double
-type UpperBound = Double
-type LowerBound = Double
-
-data ContDist = Beta      Alpha Beta
-              | Gaussian  Mu    Sigma
-              | Uniform     LowerBound UpperBound
-              | Exponential Double
-              | Poisson     Double
-
-instance Show ContDist where
-  show (Beta     a b    ) = "Beta "         ++ show a ++ " " ++ show b
-  show (Gaussian m s    ) = "Gaussian "     ++ show m ++ " " ++ show s
-  show (Uniform  a b    ) = "Beta "         ++ show a ++ " " ++ show b
-  show (Exponential lmbd) = "Exponential "  ++ show lmbd
-  show (Poisson r       ) = "Poisson "      ++ show r
-
-data DscrDist = Bernoulli   Double
-
-instance Show DscrDist where
-  show (Bernoulli p) = "Bernoulli " ++ show p
-
-
-data Kuifje
-  = Skip
-  | Return  Var
-  | Update  Statement Kuifje
-  | If      Cond Kuifje Kuifje Kuifje
-  | While   Cond Kuifje Kuifje
-
-instance Show Kuifje where
-  show  Skip                = ""
-  show (Return  a        )  = "return " ++ a ++ ";\n"
-  show (Update s k1      )  = show s ++ "\n" ++ show k1
-  show (If     c k1 k2 k3)  = "if (" ++ show c ++ "){\n" ++
-                                  show k1 ++ "}\n" ++ 
-                              "else (" ++ show k2 ++ "){\n" ++
-                                  show k3 ++ "}\n" 
-
-  show (While  c k1 k2   )  = "while (" ++ show c ++ "){\n" ++ 
-                                  show k1 ++ "}\n" ++ 
-                                  show k2
-instance Semigroup Kuifje where
-  Return a      <> l    = Return a -- FIXME? 
-  Skip          <> l    = l
-  Update s p    <> l    = Update s (p <> l)
-  While c p q   <> l    = While c p (q <> l)
-  If c p q r    <> l    = If c p q (r <> l)
-
-instance Monoid Kuifje where
-  mempty = Skip
-  mappend = (<>)
-
-skip :: Kuifje
-skip = Skip
-
-update :: Statement -> Kuifje
-update f = Update f skip
-
-while :: Cond -> Kuifje -> Kuifje -> Kuifje
-while = While
-
-cond :: Cond -> Kuifje -> Kuifje -> Kuifje -> Kuifje
-cond = If
-
-returns :: Var -> Kuifje
-returns = Return
 -- ------------------------------------
 -- random function : 
 -- ------------------------------------
 
-contDist :: ContDist -> Dist Int
+contDist :: Rp.ContDist -> Dist Int
 contDist _ =  hardcodedContDist
 
 hardcodedContDist :: Dist Int
@@ -149,7 +33,7 @@ hardcodedContDist = D $ M.fromList
              , let p = if even x then 1 DR.% 20 else 3 DR.% 100
     ]
 
-dscrDist :: DscrDist -> Dist Bool
+dscrDist :: Rp.DscrDist -> Dist Bool
 dscrDist _ =  hardcodedDscrDist
 
 hardcodedDscrDist :: Dist Bool
@@ -180,7 +64,7 @@ sumDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
 
 subDistributions :: Dist Int -> Dist Int -> Dist Int
 subDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
-          [ (x+y, p1*p2)
+          [ (x-y, p1*p2)
           | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2 ]
 
 mulDistributions :: Dist Int -> Dist Int -> Dist Int
@@ -261,15 +145,15 @@ addBoolPerturbation (D dist) (D noise) = D $ M.fromListWith (+) [(x /= n, p * q)
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalExpr :: Expr -> S.State Env (Dist Int)
-evalExpr (Add u v d) = do
+evalExpr :: Rp.Expr -> S.State Env (Dist Int)
+evalExpr (Rp.Add u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = sumDistributions x y
   let l = contDist d
   return (addPerturbation z l)  --additive noise added
 
-evalExpr (Sub u v d) = do
+evalExpr (Rp.Sub u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
@@ -277,7 +161,7 @@ evalExpr (Sub u v d) = do
   let l = contDist d
   return (addPerturbation z l)
 
-evalExpr (Mul u v d) = do
+evalExpr (Rp.Mul u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
@@ -285,7 +169,7 @@ evalExpr (Mul u v d) = do
   let l = contDist d
   return (addPerturbation z l)
 
-evalExpr (Div u v d) = do
+evalExpr (Rp.Div u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
@@ -293,7 +177,7 @@ evalExpr (Div u v d) = do
   let l = contDist d
   return (addPerturbation z l)
 
-evalExpr (Mod u v d) = do
+evalExpr (Rp.Mod u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
@@ -301,11 +185,11 @@ evalExpr (Mod u v d) = do
   let l = contDist d
   return (addPerturbation z l)
 
-evalExpr (Lit u d) = do
+evalExpr (Rp.Lit u d) = do
   let l = contDist d
   return (addPerturbation (point u) l)
 
-evalExpr (Var u) = do
+evalExpr (Rp.Var u) = do
     env <- S.get
     case env M.!? u of
         Just x  -> return x
@@ -314,8 +198,8 @@ evalExpr (Var u) = do
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalStatement :: Statement -> S.State Env ()
-evalStatement (Stat var expr) = do
+evalStatement :: Rp.Statement -> S.State Env ()
+evalStatement (Rp.Stat var expr) = do
     env <- S.get
     resultDist <- evalExpr expr
     let updatedEnv = M.insert var resultDist env
@@ -325,15 +209,15 @@ evalStatement (Stat var expr) = do
 -- ---------------------------------------------------
 
 -- moet bool teruggeven want the condition kan ook van nested nature zijn!!!
-evalComp :: Comp -> S.State Env (Dist Bool)
-evalComp (Equal e1 e2 d) = do
+evalComp :: Rp.Comp -> S.State Env (Dist Bool)
+evalComp (Rp.Equal e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
   let z       = equalDistributions resultDist1 resultDist2
   let l       = dscrDist d
   return (addBoolPerturbation z l)
 
-evalComp (NotEqual e1 e2 d) = do
+evalComp (Rp.NotEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
@@ -341,7 +225,7 @@ evalComp (NotEqual e1 e2 d) = do
   let l        = dscrDist d
   return (addBoolPerturbation distBool l)
 
-evalComp (LessThan e1 e2 d) = do
+evalComp (Rp.LessThan e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
@@ -350,7 +234,7 @@ evalComp (LessThan e1 e2 d) = do
   let resultDist  = addBoolPerturbation distBool l
   return resultDist
 
-evalComp (GreaterThan e1 e2 d) = do
+evalComp (Rp.GreaterThan e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
@@ -358,7 +242,7 @@ evalComp (GreaterThan e1 e2 d) = do
   let l           = dscrDist d
   return $ addBoolPerturbation distBool l
 
-evalComp (LessThanOrEqual e1 e2 d) = do
+evalComp (Rp.LessThanOrEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
@@ -366,7 +250,7 @@ evalComp (LessThanOrEqual e1 e2 d) = do
   let l           = dscrDist d
   return $ addBoolPerturbation distBool l
 
-evalComp (GreaterThanOrEqual e1 e2 d) = do
+evalComp (Rp.GreaterThanOrEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
@@ -377,8 +261,8 @@ evalComp (GreaterThanOrEqual e1 e2 d) = do
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalCond :: Cond -> S.State Env (Dist Bool)
-evalCond (And e1 e2 d) = do
+evalCond :: Rp.Cond -> S.State Env (Dist Bool)
+evalCond (Rp.And e1 e2 d) = do
   resultDist1 <- evalCond e1
   resultDist2 <- evalCond e2
 
@@ -387,7 +271,7 @@ evalCond (And e1 e2 d) = do
   let resultDist  = addBoolPerturbation distBool l
   return resultDist
 
-evalCond (Or e1 e2 d) = do
+evalCond (Rp.Or e1 e2 d) = do
   resultDist1 <- evalCond e1
   resultDist2 <- evalCond e2
 
@@ -395,30 +279,30 @@ evalCond (Or e1 e2 d) = do
   let l           = dscrDist d
   return $ addBoolPerturbation distBool l
 
-evalCond (Comp c) = do evalComp c
+evalCond (Rp.Comp c) = do evalComp c
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
 -- opletten, runState vs evalState !!
 
-evaluate :: Kuifje -> S.StateT Env IO (Dist Int)
-evaluate Skip = do 
+evaluate :: Rp.Kuifje -> S.StateT Env IO (Dist Int)
+evaluate Rp.Skip = do
   return (point 0)
 
-evaluate (Return a) = do
+evaluate (Rp.Return a) = do
   env <- S.get
   return (env M.! a)
 
 -- is er geen beter manier om dit te doen? 
-evaluate (Update statement restOfProgram) = do
+evaluate (Rp.Update statement restOfProgram) = do
   initialEnv <- S.get
   let result = S.runState (evalStatement statement) initialEnv
   S.put (snd result)
   updatedEnv <- S.get
   evaluate restOfProgram
 
-evaluate (If condition trueBranch falseBranch restOfProgram) = do
+evaluate (Rp.If condition trueBranch falseBranch restOfProgram) = do
   env <- S.get
   let resultDist = S.evalState (evalCond condition) env
   condResult <- S.liftIO $ sampleBoolDist resultDist
@@ -427,50 +311,56 @@ evaluate (If condition trueBranch falseBranch restOfProgram) = do
     else evaluate falseBranch
   evaluate restOfProgram
 
-evaluate (While condition body restOfProgram) = do
+evaluate (Rp.While condition body restOfProgram) = do
   env <- S.get
   let resultDist = S.evalState (evalCond condition) env
   condResult <- S.liftIO $ sampleBoolDist resultDist
   if condResult
     then do
       evaluate body
-      evaluate (While condition body restOfProgram)
+      evaluate (Rp.While condition body restOfProgram)
     else
       evaluate restOfProgram
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-statement1 :: Statement
-statement1 = Stat   "x" (Add (Lit 2 (Gaussian 0 1)) (Lit 1 (Gaussian 0 1)) (Gaussian 0 1))
+statement1 :: Rp.Statement
+statement1 = Rp.Stat   "x" (Rp.Add (Rp.Lit 2 Ds.litDist) (Rp.Lit 1 Ds.litDist) Ds.addDist)
 
-statement2 :: Cond
-statement2 = Comp (Equal (Var "x") (Lit 3 (Gaussian 0 1)) (Bernoulli 0))
+statement20 :: Rp.Cond
+statement20 = Rp.Comp (Rp.Equal (Rp.Var "x") (Rp.Lit 3 Ds.litDist) Ds.boolDist)
 
-statement3 :: Statement
-statement3 = Stat   "x" (Sub (Lit 3 (Gaussian 0 1)) (Lit 1 (Gaussian 0 1)) (Gaussian 0 1))
+statement21 :: Rp.Cond
+statement21 = Rp.Comp (Rp.NotEqual (Rp.Var "x") (Rp.Lit 3 Ds.litDist) Ds.boolDist)
 
-statement4 :: Statement
-statement4 = Stat   "t" (Mul (Var "x") (Lit 2 (Gaussian 0 1)) (Gaussian 0 1))
+statement3 :: Rp.Statement
+statement3 = Rp.Stat   "x" (Rp.Sub (Rp.Lit 3 Ds.litDist) (Rp.Lit 1 Ds.litDist) Ds.addDist)
 
-statement5 :: Var
+statement4 :: Rp.Statement
+statement4 = Rp.Stat   "t" (Rp.Mul (Rp.Var "x") (Rp.Lit 2 Ds.litDist) Ds.addDist)
+
+statement5 :: Rp.Variable
 statement5 = "x"
 
-program1 :: Kuifje
+program1 :: Rp.Kuifje
 program1
-  = update statement1 <> while statement2 (update statement3) (update statement4) <> returns statement5
+  = Rp.update statement1 <> 
+    Rp.while statement20 (Rp.update statement3) (Rp.update statement4) <> 
+    Rp.update statement1 <>
+    Rp.cond statement21 (Rp.update statement3) (Rp.update statement4) (Rp.update statement1) <>
+    Rp.returns statement5
 
-program2 :: Kuifje
+
+program2 :: Rp.Kuifje
 program2
-  = update statement1
+  = Rp.update statement1
 
 -- for development purposes: 
 printDist :: Dist Int -> IO ()
 printDist (D m) = mapM_ printEntry (M.toList m)
     where
         printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
-
-
 
 -- TODO: werk aan de parser. 
 -- TODO: tijd om te visualiseren 
@@ -480,11 +370,11 @@ main :: IO ()
 main = do
   print program1 -- dit is wat je moet schrijven en ik zal dit parsen naar de Kuifje AST. 
 
-  let initialEnv = M.empty
-  let r = S.runStateT (evaluate program1) initialEnv
-  d <- r
-  putStrLn "Nice"
-  print (snd d)
+  -- let initialEnv = M.empty
+  -- let r = S.runStateT (evaluate program1) initialEnv
+  -- d <- r
+  -- putStrLn "Nice"
+  -- print (snd d)
 
-  putStrLn "result" 
-  print (fst d)
+  -- putStrLn "result"
+  -- print (fst d)

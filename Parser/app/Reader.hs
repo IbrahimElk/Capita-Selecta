@@ -1,6 +1,6 @@
 
 module Reader where 
-import System.IO
+import qualified System.IO as IO
 
 -- deze programma is verantwoordelijk voor het lezen van een text file 
 -- die in string formaat een kuifje programma bevat. 
@@ -27,3 +27,8 @@ import System.IO
 -- (maybe saves this visualisation into a png image or something.)
 
 
+
+main :: IO ()
+main = do  
+        contents <- IO.readFile "test.txt"
+        print contents
