@@ -1,5 +1,26 @@
 -- responsible for outputting to terminal, graphs, histograms, error codes....
 
+-- TODO: tijd om te visualiseren 
+-- TODO: quickeck functies voor alles. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
