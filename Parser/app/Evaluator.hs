@@ -1,4 +1,4 @@
-module Evaluator (evaluate) where
+module Evaluator (evaluate, Dist) where
 
 import qualified Representation as Rp
 import qualified Distributions as Ds
@@ -363,13 +363,13 @@ printDist (D m) = mapM_ printEntry (M.toList m)
 
 main :: IO ()
 main = do
-  print program1 -- dit is wat je moet schrijven en ik zal dit parsen naar de Kuifje AST. 
+  -- print program1 -- dit is wat je moet schrijven en ik zal dit parsen naar de Kuifje AST. 
 
-  -- let initialEnv = M.empty
-  -- let r = S.runStateT (evaluate program1) initialEnv
-  -- d <- r
-  -- putStrLn "Nice"
-  -- print (snd d)
+  let initialEnv = M.empty
+  let r = S.runStateT (evaluate program1) initialEnv
+  d <- r
+  putStrLn "Nice"
+  print (snd d)
 
   -- putStrLn "result"
   -- print (fst d)

@@ -4,7 +4,7 @@ import qualified Text.Parsec.String as PS
 import qualified Representation as Rp
 import qualified Distributions as Ds
 import qualified Text.Parsec as P
-import qualified Data.Char as C 
+import qualified Data.Char as C
 
 import Debug.Trace (trace)
 
@@ -18,14 +18,14 @@ token :: PS.Parser a -> PS.Parser a
 token p = p <* P.spaces
 
 digit :: PS.Parser Rp.Expr
-digit = do 
+digit = do
   x <- token (P.satisfy C.isDigit)
   return (Rp.Lit (C.ord x - C.ord '0') Ds.litDist)
- 
+
 variable :: PS.Parser Rp.Expr
-variable = do 
+variable = do
   x <- P.many1 P.letter
-  return (Rp.Var x) 
+  return (Rp.Var x)
 
 parseVar :: PS.Parser String
 parseVar = P.many1 P.letter
@@ -70,7 +70,7 @@ term :: PS.Parser Rp.Expr
 term = factor `P.chainl1` muldivop
 
 parseExpr :: PS.Parser Rp.Expr
-parseExpr = term `P.chainl1` addsubop 
+parseExpr = term `P.chainl1` addsubop
 
 -- -------------------------------------------------------
 -- -------------------------------------------------------
@@ -79,8 +79,8 @@ parseExpr = term `P.chainl1` addsubop
 -- -------------------------------------------------------
 
 parseComp :: PS.Parser Rp.Comp
-parseComp = P.try parseEqual  P.<|> P.try parseNotEqual 
-  P.<|> P.try parseLessThan P.<|> P.try parseGreaterThan 
+parseComp = P.try parseEqual  P.<|> P.try parseNotEqual
+  P.<|> P.try parseLessThan P.<|> P.try parseGreaterThan
   P.<|> P.try parseLessThanOrEqual P.<|> P.try parseGreaterThanOrEqual
 
 parseEqual :: PS.Parser Rp.Comp
@@ -144,8 +144,7 @@ parseCond = parseCompCond P.<|> parseAndCond P.<|> parseOrCond
 
 parseCompCond :: PS.Parser Rp.Cond
 parseCompCond = do
-  c <- parseComp
-  return (Rp.Comp c)
+  Rp.Comp <$> parseComp
 
 parseAndCond :: PS.Parser Rp.Cond
 parseAndCond = do
@@ -195,13 +194,8 @@ parseReturn = do
 parseUpdate :: PS.Parser Rp.Kuifje
 parseUpdate = do
   s <- parseStatement
-  -- let message = "Parsed update: "  ++ show s
-  -- trace message $ 
   P.spaces
-  k <- parseKuifje
-  -- let message = "Parsed update: "  ++ show s ++ "\n parsed kuifje of update: " ++ show k
-  -- trace message $ 
-  return (Rp.Update s k)
+  Rp.Update s <$> parseKuifje
 
 parseIf :: PS.Parser Rp.Kuifje
 parseIf = do
@@ -222,14 +216,13 @@ parseIf = do
   k2 <- parseKuifje
   P.char '}'
   P.spaces
-  k3 <- parseKuifje
-  return (Rp.If c k1 k2 k3)
+  Rp.If c k1 k2 <$> parseKuifje
 
 parseWhile :: PS.Parser Rp.Kuifje
 parseWhile = do
   P.string "while"
-  P.spaces 
-  P.string "(((" 
+  P.spaces
+  P.string "((("
   P.spaces
   c <- parseCond
   P.spaces
@@ -238,8 +231,7 @@ parseWhile = do
   k1 <- parseKuifje
   P.char '}'
   P.spaces
-  k2 <- parseKuifje
-  return (Rp.While c k1 k2)
+  Rp.While c k1 <$> parseKuifje
 
 removeNewlines :: String -> String
 removeNewlines = filter (/= '\n')
@@ -253,9 +245,9 @@ parser = do
   let modifiedContents = removeNewlines contents
   let parsedProgram = P.parse parseKuifje "" modifiedContents
   case parsedProgram of
-    Left err -> do 
+    Left err -> do
       error "The kuifje program contains syntax errors, Sukkel. :)"
-    Right program -> do 
+    Right program -> do
       return program
-  
+
 

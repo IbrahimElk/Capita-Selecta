@@ -1,69 +1,75 @@
--- responsible for outputting to terminal, graphs, histograms, error codes....
+module Visualisator (main) where
 
--- TODO: tijd om te visualiseren 
--- TODO: quickeck functies voor alles. 
+-- https://hackage.haskell.org/package/gnuplot-0.1/docs/Graphics-GNUPlot-Simple.html
+import qualified Graphics.Gnuplot.Simple as G
+import qualified Data.Map as M
+import Data.Ratio ((%))
 
-
-
-
-
-
-
-
-
+type Prob = Rational
+newtype Dist a = D { runD :: M.Map a Prob }
+  deriving (Show)
+type Env = M.Map String (Dist Int)
 
 
+-- for each variable do the following in a .log file
+-- some information about the variable. 
+-- for example, which values this variable can take.
+plotHistogram :: Dist Int -> IO ()
+plotHistogram (D outcomes) = do
+    let values = map fst (M.toList outcomes)
+    let probabilities = map snd (M.toList outcomes)
+    let dataPoints = zip values probabilities
+    G.plotList [] dataPoints
 
+generateHistogram :: Dist Int -> String
+generateHistogram (D outcomes) =
+    "Calculator Result Histogram:\n" ++
+    concatMap (\(x, p) -> show x ++ ": " ++ replicate (round (fromRational p * 100)) '*' ++ "\n") (M.toList outcomes)
 
+expectedValue :: Dist Int -> Double
+expectedValue (D outcomes) =
+    fromRational $ sum [fromIntegral x * p | (x, p) <- M.toList outcomes]
 
+-- variance
+variance :: Dist Int -> Double
+variance dist =
+    let mean = expectedValue dist
+    in sum [fromRational p * ((fromIntegral x - mean) ^ 2) | (x, p) <- M.toList (runD dist)]
 
+-- standard deviation
+standardDeviation :: Dist Int -> Double
+standardDeviation dist = sqrt (variance dist)
 
+possibleValues :: Dist Int -> [Int]
+possibleValues (D outcomes) = [x | (x, _) <- M.toList outcomes]
 
+-- Function to log information about the variable
+logVariableInfo :: String -> Dist Int -> IO ()
+logVariableInfo varName dist = do
+    let hist = generateHistogram dist
+    let mean = expectedValue dist
+    let pv = possibleValues dist
+    let var = variance dist
+    let stdDev = standardDeviation dist
+    let logContent = unlines [
+            "Variable: " ++ varName,
+            "Possible values with probabilities:",
+            show pv,
+            hist,
+            "Metrics:",
+            "Expected value (mean): " ++ show mean,
+            "Variance: " ++ show var,
+            "Standard deviation: " ++ show stdDev,
+            "\n"
+            ]
+    plotHistogram dist
+    appendFile (varName ++ ".log") logContent
 
+exampleDist :: Dist Int
+exampleDist = D $ M.fromList [(1, 1 % 4), (2, 1 % 2), (3, 1 % 4)]
 
+exampleEnv :: Env
+exampleEnv = M.fromList [("exampleVar", exampleDist)]
 
-
-
--- generateHistogramTerminal :: Dist Int -> IO ()
--- generateHistogramTerminal (D outcomes) =
---     putStrLn "Calculator Result Histogram" >>
---     mapM_ (\(x, p) -> putStrLn (show x ++ ": " ++ replicate (round $ p * 100) '*')) (M.toList outcomes)
-
--- exampleDist1 :: Dist Int
--- exampleDist1 = D $ M.fromList [(1, 0.2), (2, 0.5), (3, 0.3)]
-
--- exampleDist2 :: Dist Int
--- exampleDist2 = D $ M.fromList [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
-
--- main2 :: IO ()
--- main2 = do
---     putStrLn "Example 1:"
---     generateHistogramTerminal exampleDist1
---     -- putStrLn "\nExample 2:"
---     -- generateHistogramFigure exampleDist2
-
-
-
-
-
--- -- IDEA: 
-
--- -- Choose a Plotting Library: Select a Haskell plotting library such as haskell-plot or Chart. 
--- -- These libraries provide functions and types for creating a wide range of plots, 
--- -- including histograms, line charts, scatter plots, and heatmaps.
-
--- -- extra ideen : 
--- -- Extend the Evaluator: Modify the evaluator function to compute additional statistical metrics or 
--- -- data that can be used for plotting. For example, you may calculate the mean, median, variance, or 
--- -- other summary statistics of the stochastic processes or probability distributions.
-
--- -- PROBLEEM2:
--- -- Hoe samplen van een Dist int type. 
--- -- blijkbaar kun je dat doen met de Dist monad.
--- -- sample :: Dist Int -> Int
--- -- of 
--- -- sample :: Dist Bool -> Bool
--- -- Mailtje sturen naar prof voor deze functie. 
-
--- -- quickCheck : 
-
+main :: IO ()
+main = mapM_ (uncurry logVariableInfo) (M.toList exampleEnv)

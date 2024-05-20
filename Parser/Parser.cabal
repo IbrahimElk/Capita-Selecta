@@ -26,15 +26,20 @@ source-repository head
 library
   exposed-modules:
       Lib
-  other-modules:
-      Paths_Parser
-  autogen-modules:
-      Paths_Parser
+  -- other-modules:
+  --     Paths_Parser
+  -- autogen-modules:
+  --     Paths_Parser
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       Chart
+    , gnuplot
+    , process == 1.6.19.0
+    , Chart-diagrams
+    , random-fu
+    , containers
     , base >=4.7 && <5
     , mtl
     , parsec
@@ -44,14 +49,24 @@ library
 executable Parser-exe
   main-is: Main.hs
   other-modules:
-      Paths_Parser
-  autogen-modules:
-      Paths_Parser
+      Distributions
+      Evaluator
+      Parser
+      Representation
+      Visualisator
+  -- autogen-modules:
+  --     Paths_Parser
   hs-source-dirs:
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Chart
+    , gnuplot
+    , process == 1.6.19.0
+    , Chart-cairo  
+    , Chart-diagrams
+    , random-fu
+    , containers
     , Parser
     , base >=4.7 && <5
     , mtl
@@ -62,15 +77,20 @@ executable Parser-exe
 test-suite Parser-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
-  other-modules:
-      Paths_Parser
-  autogen-modules:
-      Paths_Parser
+  -- other-modules:
+  --     Paths_Parser
+  -- autogen-modules:
+  --     Paths_Parser
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Chart
+    , gnuplot
+    , process == 1.6.19.0
+    , Chart-diagrams
+    , random-fu
+    , containers
     , Parser
     , base >=4.7 && <5
     , mtl
