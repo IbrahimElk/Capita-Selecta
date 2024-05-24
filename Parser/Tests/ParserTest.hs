@@ -24,7 +24,6 @@ test_stat_parser1 = H.TestList
         Right actual1 -> H.assertEqual "Test case 1" statement1 actual1
   ]
 
-
 statement20 :: Comp
 statement20 = Equal (Var "x") (Lit 3 D.litDist) D.boolDist
 
@@ -58,7 +57,6 @@ test_comp_parser = H.TestList
 statement3 :: Statement
 statement3 = Stat   "x" (Sub (Lit 3 D.litDist) (Lit 1 D.litDist) D.addDist)
 
-
 test_stat_parser2 :: H.Test
 test_stat_parser2 = H.TestList
   [H.TestCase $ do
@@ -67,7 +65,6 @@ test_stat_parser2 = H.TestList
         Left err -> H.assertFailure ("Parse error: " ++ show err)
         Right actual1 -> H.assertEqual "Test case 4" statement3 actual1
   ]
-
 
 statement4 :: Statement
 statement4 = Stat   "t" (Mul (Var "x") (Lit 2 D.litDist) D.addDist)
