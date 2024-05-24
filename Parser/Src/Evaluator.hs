@@ -1,13 +1,14 @@
-module Src.Evaluator (evaluate) where
+module Parser.Src.Evaluator (
+  module Parser.Src.Evaluator
+) where
 
-import qualified Src.Representation as Rp 
-import Src.Representation (Dist(..),Env ) 
+import Parser.Src.Representation (Dist(..), Env, Expr(..), Statement(..), Comp(..), Cond(..), Kuifje(..)) 
+import qualified Parser.Src.Distributions as D
 
-import qualified Src.Distributions as Ds
-import qualified Control.Monad.State as S
 import qualified Control.Monad.IO.Class as IO
+import qualified Control.Monad.State as S
+import qualified System.Random as Ra
 import qualified Data.Ratio as DR
-import qualified System.Random as R
 import qualified Data.Map as M
 
 import Data.Map.Strict ( elems, mapWithKey, singleton )
@@ -17,7 +18,7 @@ import GHC.Real (fromRational)
 -- ------------------------------------
 -- evaluator function : 
 -- ------------------------------------
-point :: (Ord a) => a -> Rp.Dist a
+point :: (Ord a) => a -> Dist a
 point x = D $ singleton x 1
 
 sampleBoolDist :: Dist Bool -> IO Bool
@@ -27,7 +28,7 @@ sampleBoolDist (D dist) = do
     return (randomNumber <= fromRational p)
 
 generateRandomDouble :: IO Double
-generateRandomDouble = R.randomRIO (0, 1)
+generateRandomDouble = Ra.randomRIO (0, 1)
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
@@ -56,6 +57,23 @@ modDistributions :: Dist Int -> Dist Int -> Dist Int
 modDistributions (D dist1) (D dist2) = D $ M.fromListWith (+)
             [ (x `mod` y, p1 * p2)
             | (x, p1) <- M.toList dist1, (y, p2) <- M.toList dist2, y /= 0 ]
+
+-- ---------------------------------------------------
+-- ---------------------------------------------------
+
+normalizeBDistribution :: Dist Bool -> Dist Bool 
+normalizeBDistribution (D dist) = D $ M.map (/ totalProb) dist
+  where
+    totalProb = sum (M.elems dist)
+
+normalizeDistribution :: Dist Int -> Dist Int 
+normalizeDistribution (D dist) = removeZeros $ D $ M.map (/ totalProb) dist
+  where
+    totalProb = sum (M.elems dist)
+
+-- analoog aan reduction functie in Kuifje source code. 
+removeZeros :: Dist Int -> Dist Int 
+removeZeros (D dist) = D $ M.filter (/= 0) dist
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
@@ -120,51 +138,61 @@ addBoolPerturbation (D dist) (D noise) = D $ M.fromListWith (+) [(x /= n, p * q)
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalExpr :: Rp.Expr -> S.State Env (Dist Int)
-evalExpr (Rp.Add u v d) = do
+evalExpr :: Expr -> S.State Env (Dist Int)
+evalExpr (Add u v d) = do
   x <- evalExpr u
   y <- evalExpr v
   let z = sumDistributions x y
-  let l = Ds.contDist d
-  return (addPerturbation z l)  --additive noise added
+  let nz = normalizeDistribution z
+  let l = D.contDist d
+  let resultDist = addPerturbation nz l --additive noise added
+  return $ normalizeDistribution resultDist
 
-evalExpr (Rp.Sub u v d) = do
+evalExpr (Sub u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
   let z = subDistributions x y
-  let l = Ds.contDist d
-  return (addPerturbation z l)
+  let nz = normalizeDistribution z
+  let l = D.contDist d
+  let resultDist = addPerturbation nz l
+  return $ normalizeDistribution resultDist
 
-evalExpr (Rp.Mul u v d) = do
+evalExpr (Mul u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
   let z = mulDistributions x y
-  let l = Ds.contDist d
-  return (addPerturbation z l)
+  let nz = normalizeDistribution z
+  let l = D.contDist d
+  let resultDist = addPerturbation nz l
+  return $ normalizeDistribution resultDist
 
-evalExpr (Rp.Div u v d) = do
+evalExpr (Div u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
   let z = divDistributions x y
-  let l = Ds.contDist d
-  return (addPerturbation z l)
+  let nz = normalizeDistribution z
+  let l = D.contDist d
+  let resultDist = addPerturbation nz l
+  return $ normalizeDistribution resultDist
 
-evalExpr (Rp.Mod u v d) = do
+evalExpr (Mod u v d) = do
   env <- S.get
   x <- evalExpr u
   y <- evalExpr v
   let z = modDistributions x y
-  let l = Ds.contDist d
-  return (addPerturbation z l)
+  let nz = normalizeDistribution z
+  let l = D.contDist d
+  let resultDist = addPerturbation nz l
+  return $ normalizeDistribution resultDist
 
-evalExpr (Rp.Lit u d) = do
-  let l = Ds.contDist d
-  return (addPerturbation (point u) l)
+evalExpr (Lit u d) = do
+  let l = D.contDist d
+  return (normalizeDistribution $ addPerturbation (point u) l)
 
-evalExpr (Rp.Var u) = do
+evalExpr (Var u) = do
     env <- S.get
     case env M.!? u of
         Just x  -> return x
@@ -173,8 +201,8 @@ evalExpr (Rp.Var u) = do
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalStatement :: Rp.Statement -> S.State Env ()
-evalStatement (Rp.Stat var expr) = do
+evalStatement :: Statement -> S.State Env ()
+evalStatement (Stat var expr) = do
     env <- S.get
     resultDist <- evalExpr expr
     let updatedEnv = M.insert var resultDist env
@@ -184,100 +212,115 @@ evalStatement (Rp.Stat var expr) = do
 -- ---------------------------------------------------
 
 -- moet bool teruggeven want the condition kan ook van nested nature zijn!!!
-evalComp :: Rp.Comp -> S.State Env (Dist Bool)
-evalComp (Rp.Equal e1 e2 d) = do
+evalComp :: Comp -> S.State Env (Dist Bool)
+evalComp (Equal e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
-  let z       = equalDistributions resultDist1 resultDist2
-  let l       = Ds.dscrDist d
-  return (addBoolPerturbation z l)
+  let distBool       = equalDistributions resultDist1 resultDist2
+  let nz = normalizeBDistribution distBool
+  let l       = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalComp (Rp.NotEqual e1 e2 d) = do
+evalComp (NotEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
   let distBool = notEqualDistributions resultDist1 resultDist2
-  let l        = Ds.dscrDist d
-  return (addBoolPerturbation distBool l)
+  let nz = normalizeBDistribution distBool
+  let l        = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalComp (Rp.LessThan e1 e2 d) = do
+evalComp (LessThan e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
   let distBool    = lessThanDistributions resultDist1 resultDist2
-  let l       = Ds.dscrDist d
-  let resultDist  = addBoolPerturbation distBool l
-  return resultDist
+  let nz = normalizeBDistribution distBool
+  let l       = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalComp (Rp.GreaterThan e1 e2 d) = do
+evalComp (GreaterThan e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
   let distBool    = greaterThanDistributions resultDist1 resultDist2
-  let l           = Ds.dscrDist d
-  return $ addBoolPerturbation distBool l
+  let nz = normalizeBDistribution distBool
+  let l           = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalComp (Rp.LessThanOrEqual e1 e2 d) = do
+evalComp (LessThanOrEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
   let distBool    = lessThanOrEqualDistributions resultDist1 resultDist2
-  let l           = Ds.dscrDist d
-  return $ addBoolPerturbation distBool l
+  let nz = normalizeBDistribution distBool
+  let l           = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalComp (Rp.GreaterThanOrEqual e1 e2 d) = do
+evalComp (GreaterThanOrEqual e1 e2 d) = do
   resultDist1 <- evalExpr e1
   resultDist2 <- evalExpr e2
 
   let distBool    = greaterThanOrEqualDistributions resultDist1 resultDist2
-  let l           = Ds.dscrDist d
-  return $ addBoolPerturbation distBool l
-
+  let nz = normalizeBDistribution distBool
+  let l           = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
-evalCond :: Rp.Cond -> S.State Env (Dist Bool)
-evalCond (Rp.And e1 e2 d) = do
+evalCond :: Cond -> S.State Env (Dist Bool)
+evalCond (And e1 e2 d) = do
   resultDist1 <- evalCond e1
   resultDist2 <- evalCond e2
 
   let distBool    = andDistributions resultDist1 resultDist2
-  let l           = Ds.dscrDist d
-  let resultDist  = addBoolPerturbation distBool l
-  return resultDist
+  let nz = normalizeBDistribution distBool
 
-evalCond (Rp.Or e1 e2 d) = do
+  let l           = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
+
+evalCond (Or e1 e2 d) = do
   resultDist1 <- evalCond e1
   resultDist2 <- evalCond e2
 
   let distBool    = orDistributions resultDist1 resultDist2
-  let l           = Ds.dscrDist d
-  return $ addBoolPerturbation distBool l
+  let nz = normalizeBDistribution distBool
+  
+  let l           = D.dscrDist d
+  let resultDist  = addBoolPerturbation nz l
+  return (normalizeBDistribution resultDist)
 
-evalCond (Rp.Comp c) = do evalComp c
+evalCond (Comp c) = do evalComp c
 
 -- ---------------------------------------------------
 -- ---------------------------------------------------
 
 -- opletten, runState vs evalState !!
 
-evaluate :: Rp.Kuifje -> S.StateT Env IO (Dist Int)
-evaluate Rp.Skip = do
+evaluate :: Kuifje -> S.StateT Env IO (Dist Int)
+evaluate Skip = do
   return (point 0)
 
-evaluate (Rp.Return a) = do
+evaluate (Return a) = do
   env <- S.get
   return (env M.! a)
 
 -- is er geen beter manier om dit te doen? 
-evaluate (Rp.Update statement restOfProgram) = do
+evaluate (Update statement restOfProgram) = do
   initialEnv <- S.get
   let result = S.runState (evalStatement statement) initialEnv
   S.put (snd result)
   updatedEnv <- S.get
   evaluate restOfProgram
 
-evaluate (Rp.If condition trueBranch falseBranch restOfProgram) = do
+evaluate (If condition trueBranch falseBranch restOfProgram) = do
   env <- S.get
   let resultDist = S.evalState (evalCond condition) env
   condResult <- S.liftIO $ sampleBoolDist resultDist
@@ -286,65 +329,13 @@ evaluate (Rp.If condition trueBranch falseBranch restOfProgram) = do
     else evaluate falseBranch
   evaluate restOfProgram
 
-evaluate (Rp.While condition body restOfProgram) = do
+evaluate (While condition body restOfProgram) = do
   env <- S.get
   let resultDist = S.evalState (evalCond condition) env
   condResult <- S.liftIO $ sampleBoolDist resultDist
   if condResult
     then do
       evaluate body
-      evaluate (Rp.While condition body restOfProgram)
+      evaluate (While condition body restOfProgram)
     else
       evaluate restOfProgram
-
--- ---------------------------------------------------
--- ---------------------------------------------------
-
-statement1 :: Rp.Statement
-statement1 = Rp.Stat   "x" (Rp.Add (Rp.Lit 2 Ds.litDist) (Rp.Lit 1 Ds.litDist) Ds.addDist)
-
-statement20 :: Rp.Cond
-statement20 = Rp.Comp (Rp.Equal (Rp.Var "x") (Rp.Lit 3 Ds.litDist) Ds.boolDist)
-
-statement21 :: Rp.Cond
-statement21 = Rp.Comp (Rp.NotEqual (Rp.Var "x") (Rp.Lit 3 Ds.litDist) Ds.boolDist)
-
-statement3 :: Rp.Statement
-statement3 = Rp.Stat   "x" (Rp.Sub (Rp.Lit 3 Ds.litDist) (Rp.Lit 1 Ds.litDist) Ds.addDist)
-
-statement4 :: Rp.Statement
-statement4 = Rp.Stat   "t" (Rp.Mul (Rp.Var "x") (Rp.Lit 2 Ds.litDist) Ds.addDist)
-
-statement5 :: Rp.Variable
-statement5 = "x"
-
-program1 :: Rp.Kuifje
-program1
-  = Rp.update statement1 <>  
-    Rp.while statement20 (Rp.update statement3) (Rp.update statement4) <> 
-    Rp.update statement1 <>
-    Rp.cond statement21 (Rp.update statement3) (Rp.update statement4) (Rp.update statement1) <>
-    Rp.returns statement5
-
-program2 :: Rp.Kuifje
-program2
-  = Rp.update statement1
-
--- for development purposes: 
-printDist :: Dist Int -> IO ()
-printDist (D m) = mapM_ printEntry (M.toList m)
-    where
-        printEntry (x, p) = putStrLn $ show x ++ ": " ++ show (fromRational p :: Double)
-
-main :: IO ()
-main = do
-  -- print program1 -- dit is wat je moet schrijven en ik zal dit parsen naar de Kuifje AST. 
-
-  let initialEnv = M.empty
-  let r = S.runStateT (evaluate program1) initialEnv
-  d <- r
-  putStrLn "Nice"
-  print (snd d)
-
-  -- putStrLn "result"
-  -- print (fst d)

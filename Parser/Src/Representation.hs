@@ -1,7 +1,8 @@
-module Src.Representation (
-    Kuifje(..), Statement(..), Expr(..), Cond(..), Comp(..), Variable,
-    ContDist(..), DscrDist(..), skip, returns, update, while, cond,
-    Dist(..), Prob(..), Env(..) ) where
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
+module Parser.Src.Representation (
+  module Parser.Src.Representation
+) where
 import qualified Data.Map as M
 
 
@@ -16,7 +17,7 @@ type Env = M.Map String (Dist Int)
 
 
 type Variable = String
-data Statement = Stat Variable Expr
+data Statement = Stat Variable Expr deriving (Eq)
 
 instance Show Statement where
     show (Stat s k1) = s ++ " = " ++ show k1 ++ ";"
@@ -29,6 +30,7 @@ data Expr = Add   Expr Expr ContDist
           | Mod   Expr Expr ContDist -- modulo operator. 
           | Lit   Int ContDist
           | Var   Variable -- eerder gedeclareerde variablen kunnen hier gebruikt worden.
+          deriving (Eq)
 
 instance Show Expr where
   show (Add   e1 e2 c)  = "(" ++ show e1 ++ "+" ++ show e2 ++ ")"
@@ -42,6 +44,7 @@ instance Show Expr where
 data Cond = And Cond Cond DscrDist
           | Or  Cond Cond DscrDist
           | Comp Comp
+          deriving (Eq)
 
 instance Show Cond where
   show (And  c1 c2 d)               = "(" ++ show c1 ++ " && "  ++ show c2  ++ ")"
@@ -54,6 +57,7 @@ data Comp = Equal        Expr Expr DscrDist
           | GreaterThan  Expr Expr DscrDist
           | LessThanOrEqual    Expr Expr DscrDist
           | GreaterThanOrEqual Expr Expr DscrDist
+          deriving (Eq)
 
 instance Show Comp where
   show (Equal        e1 e2 d)       = "( " ++ show e1 ++ " == "  ++ show e2  ++ " )"
@@ -75,6 +79,7 @@ data ContDist = Beta      Alpha Beta
               | Uniform     LowerBound UpperBound
               | Exponential Double
               | Poisson     Double
+              deriving (Eq)
 
 instance Show ContDist where
   show (Beta     a b    ) = "Beta "         ++ show a ++ " " ++ show b
@@ -83,7 +88,8 @@ instance Show ContDist where
   show (Exponential lmbd) = "Exponential "  ++ show lmbd
   show (Poisson r       ) = "Poisson "      ++ show r
 
-data DscrDist = Bernoulli   Double
+data DscrDist = Bernoulli   Double 
+  deriving (Eq)
 
 instance Show DscrDist where
   show (Bernoulli p) = "Bernoulli " ++ show p
@@ -94,8 +100,9 @@ data Kuifje
   | Return  Variable
   | Update  Statement Kuifje
   | If      Cond Kuifje Kuifje Kuifje
-  | While   Cond Kuifje Kuifje
-
+  | While   Cond Kuifje Kuifje 
+  deriving (Eq)
+  
 instance Show Kuifje where
   show  Skip                = ""
   show (Return  a        )  = "return " ++ a ++ ";\n"

@@ -1,8 +1,9 @@
-module Src.Parser (parser) where
-
+module Parser.Src.Parser (
+  module Parser.Src.Parser
+) where
 import qualified Text.Parsec.String as PS
-import qualified Src.Representation as Rp
-import qualified Src.Distributions as Ds
+import Parser.Src.Representation
+import qualified Parser.Src.Distributions as Ds
 import qualified Text.Parsec as P
 import qualified Data.Char as C
 
@@ -17,15 +18,15 @@ import Debug.Trace (trace)
 token :: PS.Parser a -> PS.Parser a
 token p = p <* P.spaces
 
-digit :: PS.Parser Rp.Expr
+digit :: PS.Parser Expr
 digit = do
   x <- token (P.satisfy C.isDigit)
-  return (Rp.Lit (C.ord x - C.ord '0') Ds.litDist)
+  return (Lit (C.ord x - C.ord '0') Ds.litDist)
 
-variable :: PS.Parser Rp.Expr
+variable :: PS.Parser Expr
 variable = do
   x <- P.many1 P.letter
-  return (Rp.Var x)
+  return (Var x)
 
 parseVar :: PS.Parser String
 parseVar = P.many1 P.letter
@@ -36,40 +37,40 @@ symb w = token (P.string w)
 -- -------------------------------------------------------------
 -- -------------------------------------------------------------
 
-addop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
-addop = do {symb "+"; return (\x y -> Rp.Add x y Ds.addDist)}
+addop :: PS.Parser (Expr -> Expr -> Expr)
+addop = do {symb "+"; return (\x y -> Add x y Ds.addDist)}
 
-subop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
-subop = do {symb "-"; return (\x y -> Rp.Sub x y Ds.subDist)}
+subop :: PS.Parser (Expr -> Expr -> Expr)
+subop = do {symb "-"; return (\x y -> Sub x y Ds.subDist)}
 
-addsubop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
+addsubop :: PS.Parser (Expr -> Expr -> Expr)
 addsubop =  addop P.<|> subop
 
 -- -------------------------------------------------------------
 -- -------------------------------------------------------------
 
-mulop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
-mulop = do {symb "*"; return (\x y -> Rp.Mul x y Ds.mulDist)}
+mulop :: PS.Parser (Expr -> Expr -> Expr)
+mulop = do {symb "*"; return (\x y -> Mul x y Ds.mulDist)}
 
-divop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
-divop = do {symb "/"; return (\x y -> Rp.Div x y Ds.divDist)}
+divop :: PS.Parser (Expr -> Expr -> Expr)
+divop = do {symb "/"; return (\x y -> Div x y Ds.divDist)}
 
-modop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
-modop = do {symb "%"; return (\x y -> Rp.Mod x y Ds.divDist)}
+modop :: PS.Parser (Expr -> Expr -> Expr)
+modop = do {symb "%"; return (\x y -> Mod x y Ds.divDist)}
 
-muldivop :: PS.Parser (Rp.Expr -> Rp.Expr -> Rp.Expr)
+muldivop :: PS.Parser (Expr -> Expr -> Expr)
 muldivop = mulop P.<|> divop P.<|> modop
 
 -- -------------------------------------------------------------
 -- -------------------------------------------------------------
 
-factor :: PS.Parser Rp.Expr
+factor :: PS.Parser Expr
 factor = digit P.<|> variable P.<|> do {symb "("; n <- parseExpr ; symb ")"; return n}
 
-term :: PS.Parser Rp.Expr
+term :: PS.Parser Expr
 term = factor `P.chainl1` muldivop
 
-parseExpr :: PS.Parser Rp.Expr
+parseExpr :: PS.Parser Expr
 parseExpr = term `P.chainl1` addsubop
 
 -- -------------------------------------------------------
@@ -78,93 +79,93 @@ parseExpr = term `P.chainl1` addsubop
 -- -------------------------------------------------------
 -- -------------------------------------------------------
 
-parseComp :: PS.Parser Rp.Comp
+parseComp :: PS.Parser Comp
 parseComp = P.try parseEqual  P.<|> P.try parseNotEqual
   P.<|> P.try parseLessThan P.<|> P.try parseGreaterThan
   P.<|> P.try parseLessThanOrEqual P.<|> P.try parseGreaterThanOrEqual
 
-parseEqual :: PS.Parser Rp.Comp
+parseEqual :: PS.Parser Comp
 parseEqual = do
+  P.spaces
   e1 <- parseExpr
   P.spaces
   P.string "=="
   P.spaces
   e2 <- parseExpr
-  -- let message = "Parsed equal 3: " ++ show e2 
-  -- trace message $ 
-  return (Rp.Equal e1 e2 Ds.boolDist)
+  P.spaces
+  return (Equal e1 e2 Ds.boolDist)
 
-parseNotEqual :: PS.Parser Rp.Comp
+parseNotEqual :: PS.Parser Comp
 parseNotEqual = do
   e1 <- parseExpr
   P.spaces
   P.string "!="
   P.spaces
   e2 <- parseExpr
-  return (Rp.NotEqual e1 e2 Ds.boolDist)
+  return (NotEqual e1 e2 Ds.boolDist)
 
-parseLessThan :: PS.Parser Rp.Comp
+parseLessThan :: PS.Parser Comp
 parseLessThan = do
   e1 <- parseExpr
   P.spaces
   P.char '<'
   P.spaces
   e2 <- parseExpr
-  return (Rp.LessThan e1 e2 Ds.boolDist)
+  return (LessThan e1 e2 Ds.boolDist)
 
-parseGreaterThan :: PS.Parser Rp.Comp
+parseGreaterThan :: PS.Parser Comp
 parseGreaterThan = do
   e1 <- parseExpr
   P.spaces
   P.char '>'
   P.spaces
   e2 <- parseExpr
-  return (Rp.GreaterThan e1 e2 Ds.boolDist)
+  return (GreaterThan e1 e2 Ds.boolDist)
 
-parseLessThanOrEqual :: PS.Parser Rp.Comp
+parseLessThanOrEqual :: PS.Parser Comp
 parseLessThanOrEqual = do
   e1 <- parseExpr
   P.spaces
   P.string "<="
   P.spaces
   e2 <- parseExpr
-  return (Rp.LessThanOrEqual e1 e2 Ds.boolDist)
+  return (LessThanOrEqual e1 e2 Ds.boolDist)
 
-parseGreaterThanOrEqual :: PS.Parser Rp.Comp
+parseGreaterThanOrEqual :: PS.Parser Comp
 parseGreaterThanOrEqual = do
   e1 <- parseExpr
   P.spaces
   P.string ">="
   P.spaces
   e2 <- parseExpr
-  return (Rp.GreaterThanOrEqual e1 e2 Ds.boolDist)
+  return (GreaterThanOrEqual e1 e2 Ds.boolDist)
 
-parseCond :: PS.Parser Rp.Cond
+parseCond :: PS.Parser Cond
 parseCond = parseCompCond P.<|> parseAndCond P.<|> parseOrCond
 
-parseCompCond :: PS.Parser Rp.Cond
+parseCompCond :: PS.Parser Cond
 parseCompCond = do
-  Rp.Comp <$> parseComp
+  Comp <$> parseComp
 
-parseAndCond :: PS.Parser Rp.Cond
+parseAndCond :: PS.Parser Cond
 parseAndCond = do
   c1 <- parseCond
   P.spaces
   P.string "&&"
   P.spaces
   c2 <- parseCond
-  return (Rp.And c1 c2 Ds.boolDist)
+  return (And c1 c2 Ds.boolDist)
 
-parseOrCond :: PS.Parser Rp.Cond
+parseOrCond :: PS.Parser Cond
 parseOrCond = do
   c1 <- parseCond
   P.spaces
   P.string "||"
   P.spaces
   c2 <- parseCond
-  return (Rp.Or c1 c2 Ds.boolDist)
+  return (Or c1 c2 Ds.boolDist)
 
-parseStatement :: PS.Parser Rp.Statement
+parseStatement :: PS.Parser Statement
 parseStatement = do
   v <- parseVar
   P.spaces
@@ -173,31 +174,31 @@ parseStatement = do
   e <- parseExpr
   P.char ';'
   -- let message = "Parsed Var: " ++ show v  ++ " Parsed Expr: " ++ show e
-  -- trace message $ return (Rp.Stat "x" (Rp.Lit 2 Ds.litDist))
-  return (Rp.Stat v e)
+  -- trace message $ return (Stat "x" (Lit 2 Ds.litDist))
+  return (Stat v e)
 
-parseKuifje :: PS.Parser Rp.Kuifje
+parseKuifje :: PS.Parser Kuifje
 parseKuifje = parseIf P.<|> parseWhile P.<|> parseReturn P.<|> parseUpdate P.<|> parseSkip
 
-parseSkip :: PS.Parser Rp.Kuifje
+parseSkip :: PS.Parser Kuifje
 parseSkip = do
-  return Rp.Skip
+  return Skip
 
-parseReturn :: PS.Parser Rp.Kuifje
+parseReturn :: PS.Parser Kuifje
 parseReturn = do
   P.string "return"
   P.spaces
   v <- parseVar
   P.char ';'
-  return (Rp.Return v)
+  return (Return v)
 
-parseUpdate :: PS.Parser Rp.Kuifje
+parseUpdate :: PS.Parser Kuifje
 parseUpdate = do
   s <- parseStatement
   P.spaces
-  Rp.Update s <$> parseKuifje
+  Update s <$> parseKuifje
 
-parseIf :: PS.Parser Rp.Kuifje
+parseIf :: PS.Parser Kuifje
 parseIf = do
   P.string "if"
   P.spaces
@@ -216,9 +217,9 @@ parseIf = do
   k2 <- parseKuifje
   P.char '}'
   P.spaces
-  Rp.If c k1 k2 <$> parseKuifje
+  If c k1 k2 <$> parseKuifje
 
-parseWhile :: PS.Parser Rp.Kuifje
+parseWhile :: PS.Parser Kuifje
 parseWhile = do
   P.string "while"
   P.spaces
@@ -231,17 +232,16 @@ parseWhile = do
   k1 <- parseKuifje
   P.char '}'
   P.spaces
-  Rp.While c k1 <$> parseKuifje
+  While c k1 <$> parseKuifje
 
 removeNewlines :: String -> String
 removeNewlines = filter (/= '\n')
 
-parser :: IO Rp.Kuifje
-parser = do
-  contents <- readFile "test.kuifje"
-  print contents
+type FileName = String
 
-  -- remove all "\n"
+parser :: FileName -> IO Kuifje
+parser filename = do
+  contents <- readFile filename
   let modifiedContents = removeNewlines contents
   let parsedProgram = P.parse parseKuifje "" modifiedContents
   case parsedProgram of
@@ -251,3 +251,12 @@ parser = do
       return program
 
 
+statement20 :: Comp
+statement20 = Equal (Var "x") (Lit 3 Ds.litDist) Ds.boolDist
+
+main :: IO()
+main = do 
+  let parsedCond = P.parse parseEqual "" "x == 2"
+  case parsedCond of
+    Left err -> print err
+    Right actual1 -> print actual1

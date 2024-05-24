@@ -1,0 +1,15 @@
+Variable: t
+Total Prob: 1.0
+Possible values with probabilities:
+[2,3,4]
+Calculator Result Histogram:
+2: *************************
+3: **************************************************
+4: *************************
+
+Metrics:
+Expected value (mean): 3.0
+Variance: 0.5
+Standard deviation: 0.7071067811865476
+
+
