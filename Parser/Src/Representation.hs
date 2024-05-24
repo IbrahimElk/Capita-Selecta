@@ -7,16 +7,12 @@ import qualified Data.Map as M
 
 
 
-type Prob = Rational
-newtype Dist a = D { runD :: M.Map a Prob }
-  deriving (Show)
-
--- type a ~> b = a -> Dist b
--- type Envs = String ~> Dist Int
-type Env = M.Map String (Dist Int)
+type Prob       = Rational
+newtype Dist a  = D { runD :: M.Map a Prob } deriving (Show)
+type Env        = M.Map String (Dist Int)
 
 
-type Variable = String
+type Variable  = String
 data Statement = Stat Variable Expr deriving (Eq)
 
 instance Show Statement where

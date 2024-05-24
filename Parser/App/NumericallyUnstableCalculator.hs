@@ -8,8 +8,8 @@ import qualified Control.Monad.State as S
 
 main :: IO ()
 main = do
-    let filename = "Parser/App/program.kuifje" 
-    -- let filename = "Parser/App/program2.kuifje" 
+    -- let filename = "Parser/App/program.kuifje" 
+    let filename = "Parser/App/program2.kuifje" 
     let initialEnv = M.empty
     program <- P.parser filename
     r <- S.runStateT (E.evaluate program) initialEnv

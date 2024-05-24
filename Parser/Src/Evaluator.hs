@@ -2,7 +2,7 @@ module Parser.Src.Evaluator (
   module Parser.Src.Evaluator
 ) where
 
-import Parser.Src.Representation (Dist(..), Env, Expr(..), Statement(..), Comp(..), Cond(..), Kuifje(..)) 
+import Parser.Src.Representation
 import qualified Parser.Src.Distributions as D
 
 import qualified Control.Monad.IO.Class as IO

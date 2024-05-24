@@ -119,9 +119,6 @@ main = do
   putStrLn "\n"
 
 
-
-
-
 -- program1 :: R.Kuifje
 -- program1
 --   = R.update statement1 <>  

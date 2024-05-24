@@ -251,12 +251,12 @@ parser filename = do
       return program
 
 
-statement20 :: Comp
-statement20 = Equal (Var "x") (Lit 3 Ds.litDist) Ds.boolDist
+-- statement20 :: Comp
+-- statement20 = Equal (Var "x") (Lit 3 Ds.litDist) Ds.boolDist
 
-main :: IO()
-main = do 
-  let parsedCond = P.parse parseEqual "" "x == 2"
-  case parsedCond of
-    Left err -> print err
-    Right actual1 -> print actual1
+-- main :: IO()
+-- main = do 
+--   let parsedCond = P.parse parseEqual "" "x == 2"
+--   case parsedCond of
+--     Left err -> print err
+--     Right actual1 -> print actual1

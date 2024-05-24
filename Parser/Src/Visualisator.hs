@@ -24,7 +24,6 @@ plotHistogram varName (D outcomes) = do
     let plotStyle = G.defaultStyle
 
     G.plotListStyle [G.Title title, G.XLabel xlabel, G.YLabel ylabel] plotStyle dataPoints
-
     -- G.plotList [] dataPoints
 
 generateHistogram :: Dist Int -> String
@@ -36,13 +35,11 @@ expectedValue :: Dist Int -> Double
 expectedValue (D outcomes) =
     fromRational $ sum [fromIntegral x * p | (x, p) <- M.toList outcomes]
 
--- variance
 variance :: Dist Int -> Double
 variance dist =
     let mean = expectedValue dist
     in sum [fromRational p * ((fromIntegral x - mean) ^ 2) | (x, p) <- M.toList (runD dist)]
 
--- standard deviation
 standardDeviation :: Dist Int -> Double
 standardDeviation dist = sqrt (variance dist)
 
@@ -52,7 +49,6 @@ possibleValues (D outcomes) = [x | (x, _) <- M.toList outcomes]
 sumProbs :: Dist Int -> Double
 sumProbs (D dist) = fromRational $ sum (M.elems dist)
 
--- Function to log information about the variable
 logVariableInfo :: String -> Dist Int -> IO ()
 logVariableInfo varName dist = do
     let hist = generateHistogram dist
