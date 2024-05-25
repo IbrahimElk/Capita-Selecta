@@ -1,9 +1,9 @@
-module Parser.Src.Parser (
-  module Parser.Src.Parser
+module Parser (
+  module Parser
 ) where
 import qualified Text.Parsec.String as PS
-import Parser.Src.Representation
-import qualified Parser.Src.Distributions as Ds
+import Representation
+import qualified Distributions as Ds
 import qualified Text.Parsec as P
 import qualified Data.Char as C
 

@@ -1,9 +1,9 @@
-module Parser.Src.Evaluator (
-  module Parser.Src.Evaluator
+module Evaluator (
+  module Evaluator
 ) where
 
-import Parser.Src.Representation
-import qualified Parser.Src.Distributions as D
+import Representation
+import qualified Distributions as D
 
 import qualified Control.Monad.IO.Class as IO
 import qualified Control.Monad.State as S

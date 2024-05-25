@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
-module Parser.Src.Representation (
-  module Parser.Src.Representation
+module Representation (
+  module Representation
 ) where
 import qualified Data.Map as M
 

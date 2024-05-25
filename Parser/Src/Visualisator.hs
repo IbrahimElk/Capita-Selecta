@@ -1,4 +1,4 @@
-module Parser.Src.Visualisator (visualiseDist, visualiseEnv) where
+module Visualisator (visualiseDist, visualiseEnv) where
 
 -- https://hackage.haskell.org/package/gnuplot-0.1/docs/Graphics-GNUPlot-Simple.html
 
@@ -6,11 +6,12 @@ module Parser.Src.Visualisator (visualiseDist, visualiseEnv) where
 -- some information about the variable. 
 -- for example, which values this variable can take.
 
-import Parser.Src.Representation (Prob, Dist(..), Env)
+import Representation (Prob, Dist(..), Env)
 import qualified Graphics.Gnuplot.Simple as G
 import qualified Data.Map as M
 import Data.Ratio ((%))
-
+import System.FilePath ((</>))
+import System.Directory (createDirectory, createDirectoryIfMissing)
 
 plotHistogram :: String -> Dist Int -> IO ()
 plotHistogram varName (D outcomes) = do
@@ -69,8 +70,10 @@ logVariableInfo varName dist = do
             "Standard deviation: " ++ show stdDev,
             "\n"
             ]
+    let resultFolder = "Result"
+    createDirectoryIfMissing True resultFolder
     plotHistogram varName dist
-    appendFile (varName ++ ".log") logContent
+    appendFile (resultFolder </> (varName ++ ".log")) logContent
 
 visualiseEnv :: Env -> IO ()
 visualiseEnv env = mapM_ (uncurry logVariableInfo) (M.toList env)

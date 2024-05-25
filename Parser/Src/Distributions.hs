@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-module Parser.Src.Distributions (addDist, subDist, mulDist, divDist, litDist, boolDist, contDist, dscrDist) where
-
+module Distributions (
+  module Distributions
+) where
 -- import qualified Main as M
 import qualified Data.Ratio as DR
 import qualified Data.Map as M
-import Parser.Src.Representation 
+import Representation 
 
 -- ------------------------------------
 -- random function : 

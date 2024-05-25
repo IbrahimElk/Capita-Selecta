@@ -1,4 +1,4 @@
-Variable: x
+Variable: result
 Total Prob: 1.0
 Possible values with probabilities:
 [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -37,7 +37,7 @@ Variance: 6.949432373046875
 Standard deviation: 2.636177606506602
 
 
-Variable: x
+Variable: result
 Total Prob: 1.0
 Possible values with probabilities:
 [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -76,26 +76,7 @@ Variance: 6.949432373046875
 Standard deviation: 2.636177606506602
 
 
-Variable: x
-Total Prob: 1.0
-Possible values with probabilities:
-[0,1,2,3,4,5,6]
-Calculator Result Histogram:
-0: **
-1: *********
-2: ***********************
-3: *******************************
-4: ***********************
-5: *********
-6: **
-
-Metrics:
-Expected value (mean): 3.0
-Variance: 1.5
-Standard deviation: 1.224744871391589
-
-
-Variable: x
+Variable: result
 Total Prob: 1.0
 Possible values with probabilities:
 [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -134,7 +115,7 @@ Variance: 6.949432373046875
 Standard deviation: 2.636177606506602
 
 
-Variable: x
+Variable: result
 Total Prob: 1.0
 Possible values with probabilities:
 [0,1,2,3,4,5,6]
