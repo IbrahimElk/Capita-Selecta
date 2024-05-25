@@ -1,5 +1,5 @@
-module Parser (
-  module Parser
+module Parserator (
+  module Parserator
 ) where
 import qualified Text.Parsec.String as PS
 import Representation
