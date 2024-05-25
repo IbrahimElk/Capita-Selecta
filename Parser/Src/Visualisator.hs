@@ -1,4 +1,4 @@
-module Visualisator (visualiseDist, visualiseEnv) where
+module Src.Visualisator (visualiseDist, visualiseEnv) where
 
 -- https://hackage.haskell.org/package/gnuplot-0.1/docs/Graphics-GNUPlot-Simple.html
 
@@ -6,7 +6,7 @@ module Visualisator (visualiseDist, visualiseEnv) where
 -- some information about the variable. 
 -- for example, which values this variable can take.
 
-import Representation (Prob, Dist(..), Env)
+import Src.Representation
 import qualified Graphics.Gnuplot.Simple as G
 import qualified Data.Map as M
 import Data.Ratio ((%))

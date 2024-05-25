@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
-module Representation (
-  module Representation
-) where
+module Src.Representation 
+  ( module  Src.Representation )
+   where
 import qualified Data.Map as M
 
 

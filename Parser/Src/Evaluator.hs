@@ -1,9 +1,9 @@
-module Evaluator (
-  module Evaluator
+module Src.Evaluator (
+  module Src.Evaluator
 ) where
 
-import Representation
-import qualified Distributions as D
+import Src.Representation
+import qualified Src.Distributions as D
 
 import qualified Control.Monad.IO.Class as IO
 import qualified Control.Monad.State as S

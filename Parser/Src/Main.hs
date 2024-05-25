@@ -1,8 +1,8 @@
-module Main (main) where
+module Main where
 
-import qualified Parserator as P
-import qualified Evaluator as E
-import qualified Visualisator as V
+import qualified Src.Parserator as P
+import qualified Src.Evaluator as E
+import qualified Src.Visualisator as V
 import qualified Data.Map as M
 import qualified Control.Monad.State as S
 import Options.Applicative

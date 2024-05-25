@@ -1,16 +1,13 @@
-module Parser.Tests.ParserTest where
-import Test.QuickCheck
+module Tests.ParserTest 
+  (module Tests.ParserTest)
+  where
+    
 import qualified Test.HUnit as H
-import qualified Data.Map as M
-
-import Parser.Src.Representation
-import qualified Parser.Src.Representation as R
-
-import qualified Parser.Src.Distributions as D
-
 import qualified Text.Parsec as P
-import qualified Text.Parsec.String as PS
-import qualified Parser.Src.Parser as Ps
+
+import Src.Representation
+import qualified Src.Distributions as D
+import qualified Src.Parserator as Ps
 
 statement1 :: Statement
 statement1 = Stat "x" (Add (Lit 2 D.litDist) (Lit 1 D.litDist) D.addDist)
@@ -91,8 +88,8 @@ test_var_parser = H.TestList
   ]
 
 
-main :: IO ()
-main = do
+mainP :: IO ()
+mainP = do
 
   putStrLn "test_comp_parser"
   _ <- H.runTestTT test_comp_parser
@@ -130,37 +127,6 @@ main = do
 -- program2 :: R.Kuifje
 -- program2
 --   = R.update statement1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 -- instance Arbitrary Statement where

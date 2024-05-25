@@ -1,0 +1,61 @@
+Test suite CT: RUNNING...
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+test_comp_parser
+
+
+test_cond_parser
+
+
+test_stat_parser1
+
+
+test_stat_parser2
+
+
+test_stat_parser3
+
+
+test_var_parser
+
+
+prop_symmetric_sumDistributions:
++++ OK, passed 100 tests; 70 discarded.
+
+
+prop_symmetric_mulDistributions:
++++ OK, passed 100 tests; 101 discarded.
+
+
+prop_normalizeBDistribution:
++++ OK, passed 100 tests; 61 discarded.
+
+
+prop_normalizeDistribution:
+*** Failed! Exception: 'Ratio has zero denominator' (after 1 test):
+fromList [(0,(-2) % 1),(1,2 % 1)]
+Exception thrown while showing test case: 'Ratio has zero denominator'
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+Cases: 1  Tried: 0  Errors: 0  Failures: 0                                          Cases: 1  Tried: 1  Errors: 0  Failures: 0
+
+
+test_sumDistributions
+
+
+test_subDistributions
+
+
+prop_sum_to_one_contDist:
++++ OK, passed 100 tests.
+
+
+prop_sum_to_one_dscrDist:
++++ OK, passed 100 tests.
+
+
+Test suite CT: PASS
+Test suite logged to: /home/ibrahim/Documents/KuLeuven/Engineering/Master/1e_fase/2e_semester/Capita Selecta AI/Project/Parser/dist-newstyle/build/x86_64-linux/ghc-8.6.5/Parser-0.1.0.0/t/CT/test/Parser-0.1.0.0-CT.log

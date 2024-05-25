@@ -1,9 +1,11 @@
-module Parserator (
-  module Parserator
+module Src.Parserator (
+  module Src.Parserator
 ) where
+
+import Src.Representation
+import qualified Src.Distributions as Ds
+
 import qualified Text.Parsec.String as PS
-import Representation
-import qualified Distributions as Ds
 import qualified Text.Parsec as P
 import qualified Data.Char as C
 

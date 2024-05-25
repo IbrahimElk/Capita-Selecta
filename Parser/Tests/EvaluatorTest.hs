@@ -1,15 +1,15 @@
 
 
 
-module Parser.Tests.EvaluatorTest where
+module Tests.EvaluatorTest 
+  (module Tests.EvaluatorTest)
+  where
 import qualified Test.QuickCheck as Q
 import qualified Test.HUnit as H
 import qualified Data.Map as M
 
-import Parser.Src.Representation (Dist(..))
-import qualified Parser.Src.Representation as R
-
-import qualified Parser.Src.Evaluator as E
+import Src.Representation
+import qualified Src.Evaluator as E
 
 prop_probability_point_is_one :: Int -> Q.Property
 prop_probability_point_is_one x =
@@ -23,21 +23,21 @@ prop_probability_point_is_one x =
 -- ---------------------------------------------------
 
 
-prop_symmetric_sumDistributions :: M.Map Int R.Prob -> M.Map Int R.Prob -> Q.Property
+prop_symmetric_sumDistributions :: M.Map Int Prob -> M.Map Int Prob -> Q.Property
 prop_symmetric_sumDistributions dist1 dist2 =
   M.size dist1 >= 2 && M.size dist2 >= 2 Q.==>
   let result1 = runD $ E.sumDistributions (D dist1) (D dist2)
       result2 = runD $ E.sumDistributions (D dist2) (D dist1)
   in Q.counterexample "Results are not symmetric" $ result1 == result2
 
-prop_symmetric_mulDistributions :: M.Map Int R.Prob -> M.Map Int R.Prob -> Q.Property
+prop_symmetric_mulDistributions :: M.Map Int Prob -> M.Map Int Prob -> Q.Property
 prop_symmetric_mulDistributions dist1 dist2 =
   M.size dist1 >= 2 && M.size dist2 >= 2 Q.==>  
   let result1 = runD $ E.mulDistributions (D dist1) (D dist2)
       result2 = runD $ E.mulDistributions (D dist2) (D dist1)
   in Q.counterexample "Results are not symmetric" $ result1 == result2
 
-prop_normalizeBDistribution :: M.Map Bool R.Prob -> Q.Property
+prop_normalizeBDistribution :: M.Map Bool Prob -> Q.Property
 prop_normalizeBDistribution dist =
   (M.size dist == 2) Q.==>
   let distWithoutNegativeProbs = M.map (\p -> if p < 0 then -p else p) dist -- due to generation from arbirary Rational. 
@@ -45,7 +45,7 @@ prop_normalizeBDistribution dist =
       totalProb = sum (M.elems normalizedDist)
   in Q.counterexample ("Total probability: " ++ show totalProb) $ totalProb == 1
 
-prop_normalizeDistribution :: M.Map Int R.Prob -> Q.Property
+prop_normalizeDistribution :: M.Map Int Prob -> Q.Property
 prop_normalizeDistribution dist =
   M.size dist >= 2 Q.==>
   let normalizedDist = runD $ E.normalizeDistribution (D dist)
@@ -120,8 +120,8 @@ test_modDistributions = H.TestList
 -- ---------------------------------------------------
 
 
-main :: IO ()
-main = do
+mainE :: IO ()
+mainE = do
   putStrLn "prop_symmetric_sumDistributions:"
   _ <- Q.quickCheck prop_symmetric_sumDistributions
   putStrLn "\n"

@@ -1,14 +1,10 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
-
-module Distributions (
-  module Distributions
+module Src.Distributions (
+  module Src.Distributions
 ) where
--- import qualified Main as M
+
 import qualified Data.Ratio as DR
 import qualified Data.Map as M
-import Representation 
-
+import Src.Representation
 -- ------------------------------------
 -- random function : 
 -- ------------------------------------
